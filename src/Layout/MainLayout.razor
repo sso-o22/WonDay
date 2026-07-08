@@ -9,6 +9,18 @@
         <div class="empty-state" style="padding-top: 40vh;">불러오는 중...</div>
     </div>
 }
+else if (_callbackError is not null)
+{
+    <div class="app-shell">
+        <div class="empty-state" style="padding-top: 20vh; text-align: left; padding-left: 16px; padding-right: 16px;">
+            <div style="text-align: center; margin-bottom: 16px;">로그인 처리 중 문제가 발생했어요.</div>
+            <div style="background: var(--color-surface-alt); border-radius: 10px; padding: 12px; font-size: 11px; font-family: monospace; white-space: pre-wrap; word-break: break-all; color: var(--color-text-secondary);">@_callbackError</div>
+            <div style="text-align: center; margin-top: 16px;">
+                <a href="/login">로그인 다시 시도</a>
+            </div>
+        </div>
+    </div>
+}
 else if (!Supabase.IsLoggedIn && !IsLoginPage)
 {
     <div class="app-shell">
@@ -33,37 +45,69 @@ else
 
 @code {
     bool _checked;
+    string? _callbackError;
 
     bool IsLoginPage => Nav.Uri.Contains("/login");
 
     protected override async Task OnInitializedAsync()
     {
-        // 구글 로그인 후 돌아왔다면 URL에 ?code=... 파라미터가 붙어있어요.
-        // 이 경우 로그인 페이지에서 저장해둔 PKCE 검증값과 함께 실제 세션으로 교환합니다.
-        var code = GetQueryParam(Nav.Uri, "code");
-
-        if (!string.IsNullOrEmpty(code))
+        try
         {
-            var verifier = await JS.InvokeAsync<string?>("sessionStorage.getItem", "wonday_pkce_verifier");
+            // 구글 로그인 후 돌아왔다면 URL에 ?code=... 파라미터가 붙어있어요.
+            var code = GetQueryParam(Nav.Uri, "code");
+            var oauthError = GetQueryParam(Nav.Uri, "error_description") ?? GetQueryParam(Nav.Uri, "error");
 
-            if (!string.IsNullOrEmpty(verifier))
+            if (!string.IsNullOrEmpty(oauthError))
             {
+                // 구글/Supabase 쪽에서 아예 로그인 자체를 거부한 경우 (설정 문제 등)
+                _callbackError = $"OAuth 오류: {oauthError}";
+                _checked = true;
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(code))
+            {
+                string? verifier = null;
+                try
+                {
+                    verifier = await JS.InvokeAsync<string?>("sessionStorage.getItem", "wonday_pkce_verifier");
+                }
+                catch (Exception storageEx)
+                {
+                    _callbackError = $"세션 저장소 접근 실패: {storageEx.Message}";
+                    _checked = true;
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(verifier))
+                {
+                    _callbackError = "저장해둔 로그인 검증값을 찾을 수 없어요 (sessionStorage가 비어있음). 사파리의 개인정보 보호 설정이나 프라이빗 브라우징 모드가 원인일 수 있어요.";
+                    _checked = true;
+                    return;
+                }
+
                 try
                 {
                     await Supabase.ExchangeCodeForSessionAsync(verifier, code);
                     await JS.InvokeVoidAsync("sessionStorage.removeItem", "wonday_pkce_verifier");
                 }
-                catch (Exception ex)
+                catch (Exception exchangeEx)
                 {
-                    Console.Error.WriteLine(ex);
+                    _callbackError = $"세션 교환 실패: {exchangeEx.GetType().Name} - {exchangeEx.Message}";
+                    _checked = true;
+                    return;
                 }
+
+                Nav.NavigateTo("/", forceLoad: false, replace: true);
             }
 
-            // 주소창에 남은 ?code=... 를 지우고 깔끔한 홈 주소로 정리합니다.
-            Nav.NavigateTo("/", forceLoad: false, replace: true);
+            _checked = true;
         }
-
-        _checked = true;
+        catch (Exception ex)
+        {
+            _callbackError = $"예상치 못한 오류: {ex.GetType().Name} - {ex.Message}";
+            _checked = true;
+        }
     }
 
     static string? GetQueryParam(string uri, string key)

@@ -41,7 +41,7 @@
         }
         catch (Exception ex)
         {
-            _error = "로그인 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.";
+            _error = $"로그인 시작 실패: {ex.GetType().Name} - {ex.Message}";
             Console.Error.WriteLine(ex);
         }
     }
