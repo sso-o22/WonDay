@@ -29,22 +29,6 @@ public class SupabaseService
         // 저장돼 있던 세션이 있으면 먼저 불러오고,
         Client.Auth.LoadSession();
         await Client.InitializeAsync();
-
-        // 라이브러리 내부적으로 로그인 토큰이 실제 DB 요청에 자동으로 안 실리는
-        // 경우가 있어서, 세션이 있으면 Authorization 헤더를 직접 명시해줍니다.
-        SyncAuthHeader();
-    }
-
-    /// <summary>
-    /// 현재 로그인 세션의 액세스 토큰을 모든 요청의 Authorization 헤더에 강제로 반영합니다.
-    /// </summary>
-    public void SyncAuthHeader()
-    {
-        var token = Client.Auth.CurrentSession?.AccessToken;
-        if (!string.IsNullOrEmpty(token))
-        {
-            Client.Options.Headers["Authorization"] = $"Bearer {token}";
-        }
     }
 
     /// <summary>
@@ -66,9 +50,7 @@ public class SupabaseService
     /// </summary>
     public async Task<Supabase.Gotrue.Session?> SetSessionAsync(string accessToken, string refreshToken)
     {
-        var session = await Client.Auth.SetSession(accessToken, refreshToken);
-        SyncAuthHeader();
-        return session;
+        return await Client.Auth.SetSession(accessToken, refreshToken);
     }
 
     public async Task SignOutAsync()
