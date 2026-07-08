@@ -37,6 +37,8 @@ builder.Services.AddScoped<CardRepository>();
 builder.Services.AddScoped<SavingsGoalRepository>();
 builder.Services.AddScoped<AccountNumberCryptoService>();
 builder.Services.AddScoped<InstallmentPlanRepository>();
+builder.Services.AddScoped<BudgetOverrideRepository>();
+builder.Services.AddScoped<RecurringExpenseRepository>();
 
 builder.Services.AddSingleton(sp =>
 {

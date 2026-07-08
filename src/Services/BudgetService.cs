@@ -70,8 +70,19 @@ public class BudgetService
             .Where(c => c.Type == "expense")
             .Get();
 
-        var categories = categoriesResult.Models
-            .Where(c => c.BudgetAmount is > 0)
+        var allCategories = categoriesResult.Models;
+
+        // 이번 달에 해당하는 "이 달만 다르게" 오버라이드를 조회합니다.
+        var overridesResult = await _supabase.Client
+            .From<CategoryBudgetOverride>()
+            .Where(o => o.Year == today.Year && o.Month == today.Month)
+            .Get();
+
+        var overridesByCategory = overridesResult.Models.ToDictionary(o => o.CategoryId, o => o.Amount);
+
+        // 기본 반복 예산이 있거나, 이번 달 오버라이드가 있는 카테고리만 대상으로 합니다.
+        var categories = allCategories
+            .Where(c => c.BudgetAmount is > 0 || overridesByCategory.ContainsKey(c.Id))
             .ToList();
 
         if (categories.Count == 0)
@@ -79,7 +90,9 @@ public class BudgetService
 
         // 카테고리마다 주기가 다를 수 있어서, 가장 이른 주기 시작일부터 오늘까지를 한 번에 조회
         var earliestPeriodStart = categories
-            .Select(c => GetPeriodStart(today, c.BudgetPeriod))
+            .Select(c => overridesByCategory.ContainsKey(c.Id)
+                ? new DateTime(today.Year, today.Month, 1) // 오버라이드가 있으면 항상 월 단위로 취급
+                : GetPeriodStart(today, c.BudgetPeriod))
             .Min();
 
         var transactions = await _supabase.Client
@@ -94,8 +107,15 @@ public class BudgetService
 
         return categories.Select(c =>
         {
-            var periodStart = GetPeriodStart(today, c.BudgetPeriod);
-            var periodLength = GetPeriodLengthDays(periodStart, c.BudgetPeriod);
+            var hasOverride = overridesByCategory.TryGetValue(c.Id, out var overrideAmount);
+
+            // 오버라이드가 있으면 이번 달 1일부터를 월 단위 예산으로 취급하고,
+            // 없으면 카테고리에 설정된 기본 주기(하루/주/월)를 그대로 씁니다.
+            var effectivePeriod = hasOverride ? "monthly" : c.BudgetPeriod;
+            var effectiveAmount = hasOverride ? overrideAmount : (c.BudgetAmount ?? 0);
+
+            var periodStart = hasOverride ? new DateTime(today.Year, today.Month, 1) : GetPeriodStart(today, effectivePeriod);
+            var periodLength = GetPeriodLengthDays(periodStart, effectivePeriod);
             var dayOfPeriod = (today.Date - periodStart).Days + 1;
 
             byCategory.TryGetValue(c.Id, out var categoryTransactions);
@@ -115,8 +135,8 @@ public class BudgetService
                 CategoryName = c.Name,
                 Color = c.Color,
                 Icon = c.Icon,
-                BudgetAmount = c.BudgetAmount!.Value,
-                BudgetPeriod = c.BudgetPeriod,
+                BudgetAmount = effectiveAmount,
+                BudgetPeriod = effectivePeriod,
                 PeriodStart = periodStart,
                 PeriodLengthDays = periodLength,
                 DayOfPeriod = dayOfPeriod,

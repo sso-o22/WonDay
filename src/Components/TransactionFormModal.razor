@@ -115,13 +115,13 @@
         }
 
         var transaction = new Transaction
-            {
-                Date = _date,
-                Amount = _amount,
-                Type = _type,
-                CategoryId = string.IsNullOrEmpty(_categoryId) ? null : Guid.Parse(_categoryId),
-                Memo = _memo
-            };
+        {
+            Date = _date,
+            Amount = _amount,
+            Type = _type,
+            CategoryId = string.IsNullOrEmpty(_categoryId) ? null : Guid.Parse(_categoryId),
+            Memo = _memo
+        };
 
         var parts = _paymentMethod.Split(':');
         if (parts[0] == "account")

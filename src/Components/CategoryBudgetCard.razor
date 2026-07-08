@@ -10,16 +10,16 @@
                 <div class="transaction-icon" style="width: 28px; height: 28px;">
                     <i class="ti @(status.Icon ?? "ti-tag")" aria-hidden="true"></i>
                 </div>
-                <span style="font-size: 13px; font-weight: 600;">@status.CategoryName</span>
+                <span style="font-size: 14px; font-weight: 600;">@status.CategoryName</span>
             </div>
-            <span style="font-size: 11px; color: var(--color-text-muted);">
+            <span style="font-size: 12px; color: var(--color-text-muted);">
                 @PeriodLabel(status.BudgetPeriod) 예산 @status.BudgetAmount.ToString("N0")원
             </span>
         </div>
 
         <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
-            <span style="font-size: 11px; color: var(--color-text-muted);">오늘 사용 가능</span>
-            <span style="font-size: 18px; font-weight: 600;" class="@(status.IsOverBudget ? "text-danger" : "")">
+            <span style="font-size: 12px; color: var(--color-text-muted);">오늘 사용 가능</span>
+            <span style="font-size: 19px; font-weight: 600;" class="@(status.IsOverBudget ? "text-danger" : "")">
                 @status.AvailableToday.ToString("N0")원
             </span>
         </div>
@@ -28,7 +28,7 @@
             <div class="budget-gauge-fill" style="width: @((ratio * 100).ToString("0"))%; background: @barColor;"></div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--color-text-muted); margin-top: 6px;">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--color-text-muted); margin-top: 6px;">
             <span>누적 사용 @status.SpentPeriodToDate.ToString("N0")원</span>
             <span>@(status.IsOverBudget ? "예산 초과" : $"{Math.Round(ratio * 100)}% 사용")</span>
         </div>

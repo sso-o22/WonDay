@@ -50,6 +50,10 @@ public class Transaction : BaseModel
     [Column("installment_plan_id")]
     public Guid? InstallmentPlanId { get; set; }
 
+    // 정기결제/고정지출에서 자동 생성된 거래면 원본을 가리켜요.
+    [Column("recurring_expense_id")]
+    public Guid? RecurringExpenseId { get; set; }
+
     [Column("created_at")]
     public DateTime CreatedAt { get; set; }
 }

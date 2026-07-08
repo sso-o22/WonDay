@@ -3,6 +3,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject InstallmentPlanRepository InstallmentRepo
+@inject RecurringExpenseRepository RecurringRepo
 
 @if (!_checked)
 {
@@ -97,6 +98,7 @@ else
                 try
                 {
                     await InstallmentRepo.GenerateDueTransactionsAsync();
+                    await RecurringRepo.GenerateDueTransactionsAsync();
                 }
                 catch (Exception installmentEx)
                 {

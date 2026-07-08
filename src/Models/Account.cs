@@ -36,6 +36,16 @@ public class Account : BaseModel
     [Column("icon")]
     public string? Icon { get; set; }
 
+    // 계좌번호는 평문으로 저장하지 않고, 브라우저에서 암호화한 값만 저장합니다.
+    [Column("encrypted_number")]
+    public string? EncryptedNumber { get; set; }
+
+    [Column("encryption_iv")]
+    public string? EncryptionIv { get; set; }
+
+    [Column("encryption_salt")]
+    public string? EncryptionSalt { get; set; }
+
     [Column("created_at")]
     public DateTime CreatedAt { get; set; }
 }
