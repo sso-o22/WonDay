@@ -9,6 +9,7 @@
     --color-expense: #c98b74;
     --color-income: #7fae9c;
     --color-accent: #b3a4d9;
+    --color-accent-strong: #8a72c4;
     --color-accent-bg: rgba(179, 164, 217, 0.15);
     --color-danger: #c9766b;
     --radius-card: 16px;
@@ -17,6 +18,20 @@
 
 * {
     box-sizing: border-box;
+}
+
+/* h1은 페이지 이동 시 접근성을 위해 자동 포커스되는데, 그때 뜨는 브라우저 기본 파란 테두리를 없앱니다. */
+h1:focus {
+    outline: none;
+}
+
+/* 버튼/링크/입력창 등 실제로 조작 가능한 요소는 커스텀 포커스 표시를 남겨둡니다 (접근성 유지). */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
 }
 
 body {
@@ -277,10 +292,15 @@ input[type="range"] {
     }
 
 .btn-primary {
-    background: var(--color-accent);
-    border-color: var(--color-accent);
+    background: var(--color-accent-strong);
+    border-color: var(--color-accent-strong);
     color: #ffffff;
+    font-weight: 500;
 }
+
+    .btn-primary:active {
+        background: var(--color-accent);
+    }
 
 .btn-full {
     width: 100%;
@@ -293,7 +313,7 @@ input[type="range"] {
     width: 52px;
     height: 52px;
     border-radius: 50%;
-    background: var(--color-accent);
+    background: var(--color-accent-strong);
     color: #fff;
     border: none;
     font-size: 22px;
