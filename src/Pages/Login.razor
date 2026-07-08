@@ -33,10 +33,7 @@
             var redirectUrl = Nav.BaseUri;
             var state = await Supabase.GetGoogleSignInStateAsync(redirectUrl);
 
-            // 나중에 콜백에서 필요하니 PKCE 검증값을 세션 저장소에 잠깐 보관해둡니다.
-            await JS.InvokeVoidAsync("sessionStorage.setItem", "wonday_pkce_verifier", state.PKCEVerifier);
-
-            // 실제로 브라우저를 구글 로그인 화면으로 이동시킵니다.
+            // Implicit 플로우라 별도로 저장해둘 값이 없어요 - 바로 구글 로그인 화면으로 이동합니다.
             await JS.InvokeVoidAsync("window.location.assign", state.Uri!.ToString());
         }
         catch (Exception ex)

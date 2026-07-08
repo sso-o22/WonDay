@@ -53,51 +53,37 @@ else
     {
         try
         {
-            // 구글 로그인 후 돌아왔다면 URL에 ?code=... 파라미터가 붙어있어요.
-            var code = GetQueryParam(Nav.Uri, "code");
-            var oauthError = GetQueryParam(Nav.Uri, "error_description") ?? GetQueryParam(Nav.Uri, "error");
+            // 구글 로그인 후 돌아왔다면 URL 조각(#access_token=...&refresh_token=...)에 토큰이 실려와요.
+            var accessToken = GetUriPart(Nav.Uri, "access_token", isFragment: true);
+            var refreshToken = GetUriPart(Nav.Uri, "refresh_token", isFragment: true);
+
+            // 실패한 경우 에러가 쿼리 또는 조각 어디에 실려올지 몰라서 둘 다 확인합니다.
+            var oauthError = GetUriPart(Nav.Uri, "error_description", isFragment: false)
+                ?? GetUriPart(Nav.Uri, "error_description", isFragment: true)
+                ?? GetUriPart(Nav.Uri, "error", isFragment: false)
+                ?? GetUriPart(Nav.Uri, "error", isFragment: true);
 
             if (!string.IsNullOrEmpty(oauthError))
             {
-                // 구글/Supabase 쪽에서 아예 로그인 자체를 거부한 경우 (설정 문제 등)
                 _callbackError = $"OAuth 오류: {oauthError}";
                 _checked = true;
                 return;
             }
 
-            if (!string.IsNullOrEmpty(code))
+            if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(refreshToken))
             {
-                string? verifier = null;
                 try
                 {
-                    verifier = await JS.InvokeAsync<string?>("sessionStorage.getItem", "wonday_pkce_verifier");
+                    await Supabase.SetSessionAsync(accessToken, refreshToken);
                 }
-                catch (Exception storageEx)
+                catch (Exception setSessionEx)
                 {
-                    _callbackError = $"세션 저장소 접근 실패: {storageEx.Message}";
+                    _callbackError = $"세션 설정 실패: {setSessionEx.GetType().Name} - {setSessionEx.Message}";
                     _checked = true;
                     return;
                 }
 
-                if (string.IsNullOrEmpty(verifier))
-                {
-                    _callbackError = "저장해둔 로그인 검증값을 찾을 수 없어요 (sessionStorage가 비어있음). 사파리의 개인정보 보호 설정이나 프라이빗 브라우징 모드가 원인일 수 있어요.";
-                    _checked = true;
-                    return;
-                }
-
-                try
-                {
-                    await Supabase.ExchangeCodeForSessionAsync(verifier, code);
-                    await JS.InvokeVoidAsync("sessionStorage.removeItem", "wonday_pkce_verifier");
-                }
-                catch (Exception exchangeEx)
-                {
-                    _callbackError = $"세션 교환 실패: {exchangeEx.GetType().Name} - {exchangeEx.Message}";
-                    _checked = true;
-                    return;
-                }
-
+                // 주소창에 남은 #access_token=... 를 지우고 깔끔한 홈 주소로 정리합니다.
                 Nav.NavigateTo("/", forceLoad: false, replace: true);
             }
 
@@ -110,17 +96,27 @@ else
         }
     }
 
-    static string? GetQueryParam(string uri, string key)
+    // isFragment: true면 '#' 뒤쪽에서, false면 '?' 뒤쪽(쿼리스트링)에서 값을 찾습니다.
+    static string? GetUriPart(string uri, string key, bool isFragment)
     {
-        var queryStart = uri.IndexOf('?');
-        if (queryStart < 0) return null;
+        var marker = isFragment ? '#' : '?';
+        var start = uri.IndexOf(marker);
+        if (start < 0) return null;
 
-        var query = uri[(queryStart + 1)..];
-        foreach (var pair in query.Split('&'))
+        var part = uri[(start + 1)..];
+
+        // 쿼리 파싱 시 조각(#) 이후는 잘라내고, 조각 파싱 시 그 뒤에 또 ?가 있으면 그대로 둡니다.
+        if (!isFragment)
         {
-            var parts = pair.Split('=', 2);
-            if (parts.Length == 2 && Uri.UnescapeDataString(parts[0]) == key)
-                return Uri.UnescapeDataString(parts[1]);
+            var fragmentIndex = part.IndexOf('#');
+            if (fragmentIndex >= 0) part = part[..fragmentIndex];
+        }
+
+        foreach (var pair in part.Split('&'))
+        {
+            var kv = pair.Split('=', 2);
+            if (kv.Length == 2 && Uri.UnescapeDataString(kv[0]) == key)
+                return Uri.UnescapeDataString(kv[1]);
         }
         return null;
     }

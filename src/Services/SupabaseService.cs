@@ -26,26 +26,25 @@ public class SupabaseService
     }
 
     /// <summary>
-    /// 구글 로그인 URL과 PKCE 검증값을 생성합니다.
-    /// 이 메서드는 브라우저를 이동시키지 않으니, 호출한 쪽에서 PKCEVerifier를 저장해두고
-    /// Uri로 직접 이동(JS window.location)시켜야 합니다.
+    /// 구글 로그인 URL을 생성합니다. Implicit 플로우를 사용해서, 로그인 후 돌아올 때
+    /// 토큰이 URL 조각(#access_token=...)에 바로 실려 와요. 브라우저 저장소에
+    /// 아무것도 미리 저장해둘 필요가 없어서 iOS Safari의 저장소 정책 문제를 피할 수 있어요.
     /// </summary>
     public async Task<Supabase.Gotrue.ProviderAuthState> GetGoogleSignInStateAsync(string redirectUrl)
     {
         return await Client.Auth.SignIn(Supabase.Gotrue.Constants.Provider.Google, new Supabase.Gotrue.SignInOptions
         {
-            FlowType = Supabase.Gotrue.Constants.OAuthFlowType.PKCE,
             RedirectTo = redirectUrl
         });
     }
 
     /// <summary>
-    /// 구글 로그인 후 돌아온 콜백에서, 저장해뒀던 PKCEVerifier와 URL의 code 파라미터로
-    /// 실제 로그인 세션을 완성합니다.
+    /// 구글 로그인 후 돌아온 콜백 URL의 #access_token / #refresh_token 값으로
+    /// 실제 로그인 세션을 설정합니다.
     /// </summary>
-    public async Task<Supabase.Gotrue.Session?> ExchangeCodeForSessionAsync(string pkceVerifier, string code)
+    public async Task<Supabase.Gotrue.Session?> SetSessionAsync(string accessToken, string refreshToken)
     {
-        return await Client.Auth.ExchangeCodeForSession(pkceVerifier, code);
+        return await Client.Auth.SetSession(accessToken, refreshToken);
     }
 
     public async Task SignOutAsync()
