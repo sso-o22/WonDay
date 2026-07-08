@@ -1,5 +1,6 @@
 @page "/categories"
 @inject CategoryRepository CategoryRepo
+@inject SupabaseService Supabase
 
 <h1 style="font-size: 19px; margin: 0 0 16px;">카테고리</h1>
 
@@ -160,7 +161,8 @@ else
         }
         catch (Exception ex)
         {
-            _error = $"저장 실패: {ex.GetType().Name} - {ex.Message}";
+            var hasToken = !string.IsNullOrEmpty(Supabase.Client.Auth.CurrentSession?.AccessToken);
+            _error = $"저장 실패: {ex.GetType().Name} - {ex.Message} (토큰 있음: {hasToken})";
             return;
         }
 
