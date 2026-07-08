@@ -1,0 +1,144 @@
+@page "/"
+@inject TransactionRepository TransactionRepo
+
+<h1 style="font-size: 18px; margin: 0 0 16px;">원데이</h1>
+
+<div class="summary-grid">
+    <div class="summary-card">
+        <div class="summary-label">수입</div>
+        <div class="summary-value text-income">+@MonthIncome.ToString("N0")</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-label">지출</div>
+        <div class="summary-value text-expense">-@MonthExpense.ToString("N0")</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-label">순액</div>
+        <div class="summary-value">@((MonthIncome - MonthExpense) >= 0 ? "+" : "")@((MonthIncome - MonthExpense).ToString("N0"))</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="calendar-header">
+        <button @onclick="() => ChangeMonth(-1)"><i class="ti ti-chevron-left" aria-hidden="true"></i></button>
+        <span class="calendar-title">@_currentMonth.ToString("yyyy년 M월")</span>
+        <button @onclick="() => ChangeMonth(1)"><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
+    </div>
+
+    <div class="calendar-weekdays">
+        <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+    </div>
+
+    <div class="calendar-grid">
+        @for (var i = 0; i < LeadingBlanks; i++)
+        {
+            <div></div>
+        }
+        @for (var day = 1; day <= DateTime.DaysInMonth(_currentMonth.Year, _currentMonth.Month); day++)
+        {
+            var d = day;
+            var total = DayTotal(d);
+            <button class="calendar-cell @(IsSelected(d) ? "selected" : "")" @onclick="() => SelectDate(d)">
+                <span class="day-number">@d</span>
+                @if (total != 0)
+                {
+                    <span class="day-amount @(total > 0 ? "text-income" : "text-expense")">
+                        @(total > 0 ? "+" : "")@((total / 1000m).ToString("0"))k
+                    </span>
+                }
+            </button>
+        }
+    </div>
+</div>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span style="font-size: 13px; font-weight: 600;">@_selectedDate.ToString("M월 d일")</span>
+        <span style="font-size: 12px; color: var(--color-text-muted);">@DayTotal(_selectedDate.Day).ToString("N0")원</span>
+    </div>
+
+    @if (SelectedDateTransactions.Count == 0)
+    {
+        <div class="empty-state">이 날은 기록된 내역이 없어요.</div>
+    }
+    else
+    {
+        @foreach (var t in SelectedDateTransactions)
+        {
+            <div class="transaction-row">
+                <div class="transaction-icon"><i class="ti ti-receipt" aria-hidden="true"></i></div>
+                <div class="transaction-info">
+                    <div class="transaction-title">@(string.IsNullOrEmpty(t.Memo) ? "메모 없음" : t.Memo)</div>
+                    <div class="transaction-sub">@(t.IsShared ? "같이 보기" : "나만 보기")</div>
+                </div>
+                <div class="@(t.Type == "income" ? "text-income" : "text-expense")" style="font-weight: 600; font-size: 13px;">
+                    @(t.Type == "income" ? "+" : "-")@t.Amount.ToString("N0")원
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<button class="btn-fab" @onclick="OpenForm" aria-label="내역 추가">
+    <i class="ti ti-plus" aria-hidden="true"></i>
+</button>
+
+@if (_showForm)
+{
+    <TransactionFormModal InitialDate="_selectedDate" OnSaved="HandleSaved" OnCancelled="() => _showForm = false" />
+}
+
+@code {
+    DateTime _currentMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    DateTime _selectedDate = DateTime.Today;
+    List<Transaction> _monthTransactions = new();
+    bool _showForm;
+
+    int LeadingBlanks => (int)_currentMonth.DayOfWeek;
+
+    decimal MonthIncome => _monthTransactions.Where(t => t.Type == "income").Sum(t => t.Amount);
+    decimal MonthExpense => _monthTransactions.Where(t => t.Type == "expense").Sum(t => t.Amount);
+
+    List<Transaction> SelectedDateTransactions =>
+        _monthTransactions.Where(t => t.Date.Date == _selectedDate.Date).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMonth();
+    }
+
+    async Task LoadMonth()
+    {
+        _monthTransactions = await TransactionRepo.GetByMonthAsync(_currentMonth.Year, _currentMonth.Month);
+    }
+
+    decimal DayTotal(int day)
+    {
+        return _monthTransactions
+            .Where(t => t.Date.Day == day && t.Date.Month == _currentMonth.Month && t.Type != "transfer")
+            .Sum(t => t.Type == "income" ? t.Amount : -t.Amount);
+    }
+
+    bool IsSelected(int day) =>
+        _selectedDate.Year == _currentMonth.Year && _selectedDate.Month == _currentMonth.Month && _selectedDate.Day == day;
+
+    async Task ChangeMonth(int delta)
+    {
+        _currentMonth = _currentMonth.AddMonths(delta);
+        _selectedDate = _currentMonth;
+        await LoadMonth();
+    }
+
+    void SelectDate(int day)
+    {
+        _selectedDate = new DateTime(_currentMonth.Year, _currentMonth.Month, day);
+    }
+
+    void OpenForm() => _showForm = true;
+
+    async Task HandleSaved()
+    {
+        _showForm = false;
+        await LoadMonth();
+    }
+}

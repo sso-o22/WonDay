@@ -1,0 +1,12 @@
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <PageTitle>페이지를 찾을 수 없어요</PageTitle>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <p style="padding: 2rem;">요청하신 페이지가 없어요.</p>
+        </LayoutView>
+    </NotFound>
+</Router>

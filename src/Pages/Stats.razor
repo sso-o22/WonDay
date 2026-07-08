@@ -1,0 +1,106 @@
+@page "/stats"
+@inject TransactionRepository TransactionRepo
+@inject BudgetService BudgetSvc
+@inject CategoryRepository CategoryRepo
+
+<h1 style="font-size: 18px; margin: 0 0 16px;">통계</h1>
+
+<div class="summary-grid">
+    <div class="summary-card">
+        <div class="summary-label">이번 달 지출</div>
+        <div class="summary-value">@_monthExpense.ToString("N0")</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-label">일 평균</div>
+        <div class="summary-value">@_dailyAverage.ToString("N0")</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-label">거래 건수</div>
+        <div class="summary-value">@_transactionCount</div>
+    </div>
+</div>
+
+<h2 style="font-size: 14px; margin: 20px 0 10px;">오늘 쓸 수 있는 만큼만</h2>
+
+@if (_budgetStatuses.Count == 0)
+{
+    <div class="empty-state">예산이 설정된 카테고리가 없어요.<br />카테고리 관리에서 예산을 설정해보세요.</div>
+}
+else
+{
+    @foreach (var status in _budgetStatuses)
+    {
+        <CategoryBudgetCard Status="status" />
+    }
+}
+
+<h2 style="font-size: 14px; margin: 20px 0 10px;">카테고리별 지출</h2>
+
+<div class="card">
+    @if (_categoryTotals.Count == 0)
+    {
+        <div class="empty-state">이번 달 지출 내역이 없어요.</div>
+    }
+    else
+    {
+        @foreach (var item in _categoryTotals)
+        {
+            var maxAmount = _categoryTotals.Max(c => c.Amount);
+            var pct = maxAmount > 0 ? (double)(item.Amount / maxAmount) * 100 : 0;
+            <div style="margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+                    <span>@item.Name</span>
+                    <span style="color: var(--color-text-secondary);">@item.Amount.ToString("N0")원</span>
+                </div>
+                <div class="budget-gauge-track">
+                    <div class="budget-gauge-fill" style="width: @(pct.ToString("0"))%; background: @item.Color;"></div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    List<CategoryBudgetStatus> _budgetStatuses = new();
+    List<CategoryTotal> _categoryTotals = new();
+    decimal _monthExpense;
+    decimal _dailyAverage;
+    int _transactionCount;
+
+    static readonly string[] Palette = { "#8fb0d9", "#8fcdb6", "#e8c37a", "#b3a4d9", "#e2a3bc", "#c9a67c" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var today = DateTime.Today;
+        _budgetStatuses = await BudgetSvc.GetTodayStatusAsync(today);
+
+        var monthTransactions = await TransactionRepo.GetByMonthAsync(today.Year, today.Month);
+        var expenses = monthTransactions.Where(t => t.Type == "expense").ToList();
+
+        _monthExpense = expenses.Sum(t => t.Amount);
+        _transactionCount = expenses.Count;
+        _dailyAverage = today.Day > 0 ? _monthExpense / today.Day : 0;
+
+        var categories = await CategoryRepo.GetAllAsync();
+        var categoryLookup = categories.ToDictionary(c => c.Id, c => c.Name);
+
+        _categoryTotals = expenses
+            .Where(t => t.CategoryId.HasValue)
+            .GroupBy(t => t.CategoryId!.Value)
+            .Select((g, i) => new CategoryTotal
+            {
+                Name = categoryLookup.GetValueOrDefault(g.Key, "미분류"),
+                Amount = g.Sum(t => t.Amount),
+                Color = Palette[i % Palette.Length]
+            })
+            .OrderByDescending(c => c.Amount)
+            .ToList();
+    }
+
+    class CategoryTotal
+    {
+        public string Name { get; set; } = "";
+        public decimal Amount { get; set; }
+        public string Color { get; set; } = "";
+    }
+}

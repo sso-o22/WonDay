@@ -1,0 +1,144 @@
+@inject TransactionRepository TransactionRepo
+@inject CategoryRepository CategoryRepo
+@inject AccountRepository AccountRepo
+@inject CardRepository CardRepo
+
+<div class="modal-backdrop" @onclick="Cancel">
+    <div class="modal-sheet" @onclick:stopPropagation="true">
+        <h2 style="font-size: 16px; margin: 0 0 16px;">내역 추가</h2>
+
+        <div class="toggle-group" style="margin-bottom: 16px;">
+            <button class="@(_type == "expense" ? "active" : "")" @onclick='() => _type = "expense"'>지출</button>
+            <button class="@(_type == "income" ? "active" : "")" @onclick='() => _type = "income"'>수입</button>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">금액</label>
+            <input class="form-input" type="number" @bind="_amount" placeholder="0" />
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">카테고리</label>
+            <select class="form-select" @bind="_categoryId">
+                <option value="">선택 안 함</option>
+                @foreach (var c in _categories.Where(c => c.Type == _type))
+                {
+                    <option value="@c.Id">@c.Name</option>
+                }
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">결제 수단</label>
+            <select class="form-select" @bind="_paymentMethod">
+                <optgroup label="계좌/현금">
+                    @foreach (var a in _accounts)
+                    {
+                        <option value="account:@a.Id">@a.Name</option>
+                    }
+                </optgroup>
+                <optgroup label="카드">
+                    @foreach (var c in _cards)
+                    {
+                        <option value="card:@c.Id">@c.Name</option>
+                    }
+                </optgroup>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">메모</label>
+            <input class="form-input" @bind="_memo" placeholder="메모 (선택)" />
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">날짜</label>
+            <input class="form-input" type="date" @bind="_date" />
+        </div>
+
+        <div class="toggle-group" style="margin-bottom: 20px;">
+            <button class="@(!_isShared ? "active" : "")" @onclick="() => _isShared = false">나만 보기</button>
+            <button class="@(_isShared ? "active" : "")" @onclick="() => _isShared = true">같이 보기</button>
+        </div>
+
+        @if (_error is not null)
+        {
+            <p class="text-danger" style="font-size: 12px; margin-bottom: 12px;">@_error</p>
+        }
+
+        <div style="display: flex; gap: 8px;">
+            <button class="btn" style="flex: 1;" @onclick="Cancel">취소</button>
+            <button class="btn btn-primary" style="flex: 2;" @onclick="Save">저장</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public DateTime InitialDate { get; set; } = DateTime.Today;
+    [Parameter] public EventCallback OnSaved { get; set; }
+    [Parameter] public EventCallback OnCancelled { get; set; }
+
+    List<Category> _categories = new();
+    List<Account> _accounts = new();
+    List<Card> _cards = new();
+
+    string _type = "expense";
+    decimal _amount;
+    string _categoryId = "";
+    string _paymentMethod = "";
+    string? _memo;
+    DateTime _date;
+    bool _isShared;
+    string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _date = InitialDate;
+        _categories = await CategoryRepo.GetAllAsync();
+        _accounts = await AccountRepo.GetAllAsync();
+        _cards = await CardRepo.GetAllAsync();
+    }
+
+    async Task Save()
+    {
+        if (_amount <= 0)
+        {
+            _error = "금액을 입력해주세요.";
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_paymentMethod))
+        {
+            _error = "결제 수단을 선택해주세요.";
+            return;
+        }
+
+        var transaction = new Transaction
+        {
+            Date = _date,
+            Amount = _amount,
+            Type = _type,
+            CategoryId = string.IsNullOrEmpty(_categoryId) ? null : Guid.Parse(_categoryId),
+            Memo = _memo
+        };
+
+        var parts = _paymentMethod.Split(':');
+        if (parts[0] == "account")
+            transaction.PaymentAccountId = Guid.Parse(parts[1]);
+        else
+            transaction.PaymentCardId = Guid.Parse(parts[1]);
+
+        try
+        {
+            await TransactionRepo.CreateAsync(transaction, _isShared);
+            await OnSaved.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = "저장 중 문제가 발생했어요.";
+            Console.Error.WriteLine(ex);
+        }
+    }
+
+    async Task Cancel() => await OnCancelled.InvokeAsync();
+}

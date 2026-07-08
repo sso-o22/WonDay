@@ -1,0 +1,47 @@
+@if (Status is not null)
+{
+    var status = Status;
+    var ratio = Math.Min(status.UsageRatio, 1);
+    var barColor = status.IsOverBudget ? "var(--color-danger)" : (status.Color ?? "var(--color-accent)");
+
+    <div class="card">
+        <div class="budget-card-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div class="transaction-icon" style="width: 28px; height: 28px;">
+                    <i class="ti @(status.Icon ?? "ti-tag")" aria-hidden="true"></i>
+                </div>
+                <span style="font-size: 13px; font-weight: 600;">@status.CategoryName</span>
+            </div>
+            <span style="font-size: 11px; color: var(--color-text-muted);">
+                @PeriodLabel(status.BudgetPeriod) 예산 @status.BudgetAmount.ToString("N0")원
+            </span>
+        </div>
+
+        <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
+            <span style="font-size: 11px; color: var(--color-text-muted);">오늘 사용 가능</span>
+            <span style="font-size: 18px; font-weight: 600;" class="@(status.IsOverBudget ? "text-danger" : "")">
+                @status.AvailableToday.ToString("N0")원
+            </span>
+        </div>
+
+        <div class="budget-gauge-track">
+            <div class="budget-gauge-fill" style="width: @((ratio * 100).ToString("0"))%; background: @barColor;"></div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--color-text-muted); margin-top: 6px;">
+            <span>누적 사용 @status.SpentPeriodToDate.ToString("N0")원</span>
+            <span>@(status.IsOverBudget ? "예산 초과" : $"{Math.Round(ratio * 100)}% 사용")</span>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public CategoryBudgetStatus? Status { get; set; }
+
+    static string PeriodLabel(string period) => period switch
+    {
+        "daily" => "하루",
+        "weekly" => "주간",
+        _ => "월간"
+    };
+}

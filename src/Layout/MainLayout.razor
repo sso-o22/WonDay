@@ -1,0 +1,37 @@
+@inherits LayoutComponentBase
+@inject SupabaseService Supabase
+@inject NavigationManager Nav
+
+@if (_checked && !Supabase.IsLoggedIn && !IsLoginPage)
+{
+    <div class="app-shell">
+        <div class="empty-state" style="padding-top: 40vh;">
+            로그인이 필요해요.<br />
+            <a href="/login">로그인 화면으로 이동</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="app-shell">
+        <main class="app-main">
+            @Body
+        </main>
+        @if (!IsLoginPage)
+        {
+            <NavMenu />
+        }
+    </div>
+}
+
+@code {
+    bool _checked;
+
+    bool IsLoginPage => Nav.Uri.Contains("/login");
+
+    protected override void OnInitialized()
+    {
+        // Supabase 클라이언트는 Program.cs에서 이미 InitializeAsync가 끝난 상태로 넘어옵니다.
+        _checked = true;
+    }
+}

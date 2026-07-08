@@ -1,0 +1,193 @@
+@page "/goals"
+@inject SavingsGoalRepository GoalRepo
+
+<h1 style="font-size: 18px; margin: 0 0 16px;">목표</h1>
+
+@if (_goals.Count == 0)
+{
+    <div class="empty-state">아직 등록된 목표가 없어요.</div>
+}
+else
+{
+    @foreach (var item in _goals)
+    {
+        var pct = item.Goal.TargetAmount > 0 ? Math.Min((double)(item.CurrentAmount / item.Goal.TargetAmount) * 100, 100) : 0;
+        <div class="card">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 13px; font-weight: 600;">@item.Goal.Name</span>
+                <span style="font-size: 11px; color: var(--color-text-muted);">@PeriodLabel(item.Goal.Type)</span>
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px;">
+                <span style="font-size: 17px; font-weight: 600;">@item.CurrentAmount.ToString("N0")</span>
+                <span style="font-size: 12px; color: var(--color-text-muted);">/ @item.Goal.TargetAmount.ToString("N0")원</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" style="width: @(pct.ToString("0"))%;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--color-text-muted);">
+                <span>@(Math.Round(pct))% 달성</span>
+                @if (item.Goal.TargetDate is not null)
+                {
+                    <span>@item.Goal.TargetDate.Value.ToString("yyyy.MM.dd")까지</span>
+                }
+            </div>
+            <button class="btn btn-full" style="margin-top: 10px;" @onclick="() => OpenContributeForm(item.Goal.Id)">납입 기록 추가</button>
+        </div>
+    }
+}
+
+<button class="btn btn-full" style="margin: 16px 0;" @onclick="() => _showAddGoal = true">+ 새 목표 추가</button>
+
+<h2 style="font-size: 14px; margin: 20px 0 10px;">저축 예상 계산기</h2>
+
+<div class="card">
+    <div class="form-group">
+        <label class="form-label">매달 납입액: @_calcMonthly.ToString("N0")원</label>
+        <input type="range" min="10000" max="1000000" step="10000" @bind="_calcMonthly" @bind:event="oninput" style="width: 100%;" />
+    </div>
+    <div class="form-group">
+        <label class="form-label">기간: @_calcMonths개월</label>
+        <input type="range" min="1" max="60" step="1" @bind="_calcMonths" @bind:event="oninput" style="width: 100%;" />
+    </div>
+    <div class="form-group">
+        <label class="form-label">연 이자율: @_calcRate.ToString("0.0")%</label>
+        <input type="range" min="0" max="8" step="0.1" @bind="_calcRate" @bind:event="oninput" style="width: 100%;" />
+    </div>
+    <div style="background: var(--color-surface-alt); border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: baseline;">
+        <span style="font-size: 12px; color: var(--color-text-secondary);">예상 만기 금액</span>
+        <span style="font-size: 18px; font-weight: 600;">@ProjectedAmount.ToString("N0")원</span>
+    </div>
+</div>
+
+@if (_showAddGoal)
+{
+    <div class="modal-backdrop" @onclick="() => _showAddGoal = false">
+        <div class="modal-sheet" @onclick:stopPropagation="true">
+            <h2 style="font-size: 16px; margin: 0 0 16px;">새 목표</h2>
+            <div class="form-group">
+                <label class="form-label">이름</label>
+                <input class="form-input" @bind="_newGoalName" placeholder="예: 제주도 여행" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">목표 금액</label>
+                <input class="form-input" type="number" @bind="_newGoalTarget" placeholder="0" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">목표 날짜 (선택)</label>
+                <input class="form-input" type="date" @bind="_newGoalDate" />
+            </div>
+            <div class="toggle-group" style="margin-bottom: 16px;">
+                <button class="@(_newGoalType == "free_goal" ? "active" : "")" @onclick='() => _newGoalType = "free_goal"'>목표저축</button>
+                <button class="@(_newGoalType == "installment_saving" ? "active" : "")" @onclick='() => _newGoalType = "installment_saving"'>적금</button>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn" style="flex: 1;" @onclick="() => _showAddGoal = false">취소</button>
+                <button class="btn btn-primary" style="flex: 2;" @onclick="AddGoal">만들기</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_contributeGoalId is not null)
+{
+    <div class="modal-backdrop" @onclick="() => _contributeGoalId = null">
+        <div class="modal-sheet" @onclick:stopPropagation="true">
+            <h2 style="font-size: 16px; margin: 0 0 16px;">납입 기록</h2>
+            <div class="form-group">
+                <label class="form-label">금액</label>
+                <input class="form-input" type="number" @bind="_contributeAmount" placeholder="0" />
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn" style="flex: 1;" @onclick="() => _contributeGoalId = null">취소</button>
+                <button class="btn btn-primary" style="flex: 2;" @onclick="SaveContribution">저장</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    List<GoalWithAmount> _goals = new();
+    bool _showAddGoal;
+    string _newGoalName = "";
+    decimal _newGoalTarget;
+    DateTime? _newGoalDate;
+    string _newGoalType = "free_goal";
+
+    Guid? _contributeGoalId;
+    decimal _contributeAmount;
+
+    decimal _calcMonthly = 300000;
+    int _calcMonths = 12;
+    decimal _calcRate = 3.5m;
+
+    decimal ProjectedAmount => SavingsGoalRepository.ProjectFutureValue(0, _calcMonthly, _calcMonths, _calcRate);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGoals();
+    }
+
+    async Task LoadGoals()
+    {
+        var goals = await GoalRepo.GetAllAsync();
+        var result = new List<GoalWithAmount>();
+
+        foreach (var g in goals)
+        {
+            var contributions = await GoalRepo.GetContributionsAsync(g.Id);
+            result.Add(new GoalWithAmount { Goal = g, CurrentAmount = GoalRepo.CalculateCurrentAmount(contributions) });
+        }
+
+        _goals = result;
+    }
+
+    static string PeriodLabel(string type) => type switch
+    {
+        "installment_saving" => "적금",
+        "deposit" => "예금",
+        _ => "목표저축"
+    };
+
+    void OpenContributeForm(Guid goalId)
+    {
+        _contributeGoalId = goalId;
+        _contributeAmount = 0;
+    }
+
+    async Task SaveContribution()
+    {
+        if (_contributeGoalId is null || _contributeAmount <= 0) return;
+
+        await GoalRepo.AddContributionAsync(_contributeGoalId.Value, _contributeAmount, DateTime.Today);
+        _contributeGoalId = null;
+        await LoadGoals();
+    }
+
+    async Task AddGoal()
+    {
+        if (string.IsNullOrWhiteSpace(_newGoalName) || _newGoalTarget <= 0) return;
+
+        var goal = new SavingsGoal
+        {
+            Name = _newGoalName,
+            TargetAmount = _newGoalTarget,
+            TargetDate = _newGoalDate,
+            Type = _newGoalType
+        };
+
+        await GoalRepo.CreateAsync(goal, isShared: false);
+
+        _newGoalName = "";
+        _newGoalTarget = 0;
+        _newGoalDate = null;
+        _showAddGoal = false;
+
+        await LoadGoals();
+    }
+
+    class GoalWithAmount
+    {
+        public SavingsGoal Goal { get; set; } = null!;
+        public decimal CurrentAmount { get; set; }
+    }
+}
