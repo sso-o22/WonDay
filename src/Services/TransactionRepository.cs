@@ -33,6 +33,21 @@ public class TransactionRepository
         return result.Models;
     }
 
+    /// <summary>
+    /// 특정 기간의 거래를 한 번의 요청으로 가져옵니다. 여러 달을 한 달씩 따로 조회하는 것보다
+    /// 훨씬 빨라요 (계좌 잔액 계산처럼 여러 달치가 한꺼번에 필요할 때 이걸 쓰세요).
+    /// </summary>
+    public async Task<List<Transaction>> GetByDateRangeAsync(DateTime start, DateTime end)
+    {
+        var result = await _supabase.Client
+            .From<Transaction>()
+            .Where(t => t.Date >= start && t.Date <= end)
+            .Order(t => t.Date, Constants.Ordering.Ascending)
+            .Get();
+
+        return result.Models;
+    }
+
     // 특정 날짜의 거래 내역 조회 (날짜 탭했을 때 상세 리스트용)
     public async Task<List<Transaction>> GetByDateAsync(DateTime date)
     {

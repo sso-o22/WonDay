@@ -71,7 +71,7 @@ public class RecurringExpenseRepository
             while (new DateTime(year, month, 1) <= today)
             {
                 var day = Math.Min(item.DayOfMonth, DateTime.DaysInMonth(year, month));
-                var date = new DateTime(year, month, day);
+                var date = DateTime.SpecifyKind(new DateTime(year, month, day), DateTimeKind.Utc);
 
                 if (date <= today)
                 {

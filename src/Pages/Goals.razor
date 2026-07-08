@@ -158,7 +158,7 @@ else
     {
         if (_contributeGoalId is null || _contributeAmount <= 0) return;
 
-        await GoalRepo.AddContributionAsync(_contributeGoalId.Value, _contributeAmount, DateTime.Today);
+        await GoalRepo.AddContributionAsync(_contributeGoalId.Value, _contributeAmount, DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc));
         _contributeGoalId = null;
         await LoadGoals();
     }
@@ -171,7 +171,7 @@ else
         {
             Name = _newGoalName,
             TargetAmount = _newGoalTarget,
-            TargetDate = _newGoalDate,
+            TargetDate = _newGoalDate is not null ? DateTime.SpecifyKind(_newGoalDate.Value, DateTimeKind.Utc) : null,
             Type = _newGoalType
         };
 

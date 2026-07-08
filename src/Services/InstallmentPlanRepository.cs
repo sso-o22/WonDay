@@ -31,7 +31,7 @@ public class InstallmentPlanRepository
             TotalAmount = totalAmount,
             MonthsCount = monthsCount,
             MonthlyAmount = Math.Round(totalAmount / monthsCount, 0, MidpointRounding.AwayFromZero),
-            StartDate = new DateTime(startDate.Year, startDate.Month, 1),
+            StartDate = DateTime.SpecifyKind(new DateTime(startDate.Year, startDate.Month, 1), DateTimeKind.Utc),
             MonthsGenerated = 0,
             OwnerUserId = Guid.Parse(_supabase.CurrentUserId!),
             HouseholdId = await _supabase.GetOrCreateHouseholdIdAsync(),
