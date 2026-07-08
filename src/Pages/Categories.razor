@@ -3,6 +3,13 @@
 
 <h1 style="font-size: 19px; margin: 0 0 16px;">카테고리</h1>
 
+@if (_error is not null && !_showAddForm)
+{
+    <div class="card" style="background: var(--color-surface-alt);">
+        <p class="text-danger" style="font-size: 13px; margin: 0; word-break: break-all;">@_error</p>
+    </div>
+}
+
 <div class="toggle-group" style="margin-bottom: 16px;">
     <button class="@(_filterType == "expense" ? "active" : "")" @onclick='() => _filterType = "expense"'>지출</button>
     <button class="@(_filterType == "income" ? "active" : "")" @onclick='() => _filterType = "income"'>수입</button>
@@ -107,7 +114,14 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        await Load();
+        try
+        {
+            await Load();
+        }
+        catch (Exception ex)
+        {
+            _error = $"불러오기 실패: {ex.GetType().Name} - {ex.Message}";
+        }
     }
 
     async Task Load()
@@ -131,16 +145,24 @@ else
         }
 
         var category = new Category
-        {
-            Name = _newName,
-            Type = _newType,
-            Color = _newColor,
-            Icon = "ti-tag",
-            BudgetAmount = _newType == "expense" && _newBudgetAmount > 0 ? _newBudgetAmount : null,
-            BudgetPeriod = _newBudgetPeriod
-        };
+            {
+                Name = _newName,
+                Type = _newType,
+                Color = _newColor,
+                Icon = "ti-tag",
+                BudgetAmount = _newType == "expense" && _newBudgetAmount > 0 ? _newBudgetAmount : null,
+                BudgetPeriod = _newBudgetPeriod
+            };
 
-        await CategoryRepo.CreateAsync(category);
+        try
+        {
+            await CategoryRepo.CreateAsync(category);
+        }
+        catch (Exception ex)
+        {
+            _error = $"저장 실패: {ex.GetType().Name} - {ex.Message}";
+            return;
+        }
 
         _newName = "";
         _newBudgetAmount = null;
