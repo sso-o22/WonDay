@@ -117,7 +117,7 @@ public class SupabaseService
             HouseholdId = householdId,
             UserId = userId,
             Role = "owner"
-        });
+        }, new Supabase.Postgrest.QueryOptions { Returning = Supabase.Postgrest.QueryOptions.ReturnType.Minimal });
 
         _cachedHouseholdId = householdId;
         return householdId;
