@@ -41,7 +41,7 @@ else
         <div class="card" style="display: flex; align-items: center; justify-content: space-between;">
             <div>
                 <div style="font-size: 13px; font-weight: 600;">@c.Name</div>
-                <div style="font-size: 11px; color: var(--color-text-muted);">매월 @c.StatementDay일 마감 · @c.PaymentDay일 결제</div>
+                <div style="font-size: 11px; color: var(--color-text-muted);">매월 @(c.StatementDay)일 마감 · @(c.PaymentDay)일 결제</div>
             </div>
             <div style="font-size: 14px; font-weight: 600;">@CardRepo.CalculateCurrentStatementAmount(c, _allTransactions, DateTime.Today).ToString("N0")원</div>
         </div>
@@ -158,11 +158,11 @@ else
         if (string.IsNullOrWhiteSpace(_newAccountName)) return;
 
         await AccountRepo.CreateAsync(new Account
-        {
-            Name = _newAccountName,
-            Type = "bank",
-            InitialBalance = _newAccountBalance
-        }, _newAccountShared);
+            {
+                Name = _newAccountName,
+                Type = "bank",
+                InitialBalance = _newAccountBalance
+            }, _newAccountShared);
 
         _newAccountName = "";
         _newAccountBalance = 0;
@@ -175,11 +175,11 @@ else
         if (string.IsNullOrWhiteSpace(_newCardName)) return;
 
         await CardRepo.CreateAsync(new Card
-        {
-            Name = _newCardName,
-            StatementDay = _newCardStatementDay,
-            PaymentDay = _newCardPaymentDay
-        }, isShared: false);
+            {
+                Name = _newCardName,
+                StatementDay = _newCardStatementDay,
+                PaymentDay = _newCardPaymentDay
+            }, isShared: false);
 
         _newCardName = "";
         _showAddCard = false;

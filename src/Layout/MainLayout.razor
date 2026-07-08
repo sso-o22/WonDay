@@ -1,8 +1,15 @@
 @inherits LayoutComponentBase
 @inject SupabaseService Supabase
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
-@if (_checked && !Supabase.IsLoggedIn && !IsLoginPage)
+@if (!_checked)
+{
+    <div class="app-shell">
+        <div class="empty-state" style="padding-top: 40vh;">불러오는 중...</div>
+    </div>
+}
+else if (!Supabase.IsLoggedIn && !IsLoginPage)
 {
     <div class="app-shell">
         <div class="empty-state" style="padding-top: 40vh;">
@@ -29,9 +36,48 @@ else
 
     bool IsLoginPage => Nav.Uri.Contains("/login");
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // Supabase 클라이언트는 Program.cs에서 이미 InitializeAsync가 끝난 상태로 넘어옵니다.
+        // 구글 로그인 후 돌아왔다면 URL에 ?code=... 파라미터가 붙어있어요.
+        // 이 경우 로그인 페이지에서 저장해둔 PKCE 검증값과 함께 실제 세션으로 교환합니다.
+        var code = GetQueryParam(Nav.Uri, "code");
+
+        if (!string.IsNullOrEmpty(code))
+        {
+            var verifier = await JS.InvokeAsync<string?>("sessionStorage.getItem", "wonday_pkce_verifier");
+
+            if (!string.IsNullOrEmpty(verifier))
+            {
+                try
+                {
+                    await Supabase.ExchangeCodeForSessionAsync(verifier, code);
+                    await JS.InvokeVoidAsync("sessionStorage.removeItem", "wonday_pkce_verifier");
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine(ex);
+                }
+            }
+
+            // 주소창에 남은 ?code=... 를 지우고 깔끔한 홈 주소로 정리합니다.
+            Nav.NavigateTo("/", forceLoad: false, replace: true);
+        }
+
         _checked = true;
+    }
+
+    static string? GetQueryParam(string uri, string key)
+    {
+        var queryStart = uri.IndexOf('?');
+        if (queryStart < 0) return null;
+
+        var query = uri[(queryStart + 1)..];
+        foreach (var pair in query.Split('&'))
+        {
+            var parts = pair.Split('=', 2);
+            if (parts.Length == 2 && Uri.UnescapeDataString(parts[0]) == key)
+                return Uri.UnescapeDataString(parts[1]);
+        }
+        return null;
     }
 }

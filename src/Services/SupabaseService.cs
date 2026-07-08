@@ -26,14 +26,26 @@ public class SupabaseService
     }
 
     /// <summary>
-    /// 구글 로그인을 시작합니다. 브라우저가 구글 로그인 화면으로 리디렉션됩니다.
+    /// 구글 로그인 URL과 PKCE 검증값을 생성합니다.
+    /// 이 메서드는 브라우저를 이동시키지 않으니, 호출한 쪽에서 PKCEVerifier를 저장해두고
+    /// Uri로 직접 이동(JS window.location)시켜야 합니다.
     /// </summary>
-    public async Task SignInWithGoogleAsync(string redirectUrl)
+    public async Task<Supabase.Gotrue.ProviderAuthState> GetGoogleSignInStateAsync(string redirectUrl)
     {
-        await Client.Auth.SignIn(Supabase.Gotrue.Constants.Provider.Google, new Supabase.Gotrue.SignInOptions
+        return await Client.Auth.SignIn(Supabase.Gotrue.Constants.Provider.Google, new Supabase.Gotrue.SignInOptions
         {
+            FlowType = Supabase.Gotrue.Constants.OAuthFlowType.PKCE,
             RedirectTo = redirectUrl
         });
+    }
+
+    /// <summary>
+    /// 구글 로그인 후 돌아온 콜백에서, 저장해뒀던 PKCEVerifier와 URL의 code 파라미터로
+    /// 실제 로그인 세션을 완성합니다.
+    /// </summary>
+    public async Task<Supabase.Gotrue.Session?> ExchangeCodeForSessionAsync(string pkceVerifier, string code)
+    {
+        return await Client.Auth.ExchangeCodeForSession(pkceVerifier, code);
     }
 
     public async Task SignOutAsync()

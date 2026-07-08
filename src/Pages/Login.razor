@@ -1,6 +1,7 @@
 @page "/login"
 @inject SupabaseService Supabase
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 24px; text-align: center;">
     <h1 style="font-size: 28px; font-weight: 700; margin-bottom: 4px;">원데이</h1>
@@ -10,6 +11,10 @@
         <i class="ti ti-brand-google" aria-hidden="true"></i>
         Google로 계속하기
     </button>
+
+    <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 16px; max-width: 260px;">
+        구글 로그인 한 번이면 기록이 클라우드에 안전하게 보관되고, 배우자와도 바로 공유할 수 있어요.
+    </p>
 
     @if (_error is not null)
     {
@@ -24,7 +29,15 @@
     {
         try
         {
-            await Supabase.SignInWithGoogleAsync(Nav.BaseUri);
+            // 로그인 후 돌아올 주소는 이 로그인 페이지가 아니라 앱 홈으로 지정합니다.
+            var redirectUrl = Nav.BaseUri;
+            var state = await Supabase.GetGoogleSignInStateAsync(redirectUrl);
+
+            // 나중에 콜백에서 필요하니 PKCE 검증값을 세션 저장소에 잠깐 보관해둡니다.
+            await JS.InvokeVoidAsync("sessionStorage.setItem", "wonday_pkce_verifier", state.PKCEVerifier);
+
+            // 실제로 브라우저를 구글 로그인 화면으로 이동시킵니다.
+            await JS.InvokeVoidAsync("window.location.assign", state.Uri!.ToString());
         }
         catch (Exception ex)
         {
