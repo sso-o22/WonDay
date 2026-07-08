@@ -1,6 +1,7 @@
 using Microsoft.JSInterop;
 using Newtonsoft.Json;
 using Supabase.Gotrue;
+using Supabase.Gotrue.Interfaces;
 
 namespace WonDay.Services;
 
