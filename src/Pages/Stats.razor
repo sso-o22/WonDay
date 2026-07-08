@@ -3,7 +3,7 @@
 @inject BudgetService BudgetSvc
 @inject CategoryRepository CategoryRepo
 
-<h1 style="font-size: 18px; margin: 0 0 16px;">통계</h1>
+<h1 style="font-size: 19px; margin: 0 0 16px;">통계</h1>
 
 <div class="summary-grid">
     <div class="summary-card">
@@ -20,11 +20,11 @@
     </div>
 </div>
 
-<h2 style="font-size: 14px; margin: 20px 0 10px;">오늘 쓸 수 있는 만큼만</h2>
+<h2 style="font-size: 15px; margin: 20px 0 10px;">오늘 쓸 수 있는 만큼만</h2>
 
 @if (_budgetStatuses.Count == 0)
 {
-    <div class="empty-state">예산이 설정된 카테고리가 없어요.<br />카테고리 관리에서 예산을 설정해보세요.</div>
+    <div class="empty-state">예산이 설정된 카테고리가 없어요.<br /><a href="/categories">카테고리 관리에서 예산을 설정해보세요</a></div>
 }
 else
 {
@@ -34,7 +34,7 @@ else
     }
 }
 
-<h2 style="font-size: 14px; margin: 20px 0 10px;">카테고리별 지출</h2>
+<h2 style="font-size: 15px; margin: 20px 0 10px;">카테고리별 지출</h2>
 
 <div class="card">
     @if (_categoryTotals.Count == 0)
@@ -48,7 +48,7 @@ else
             var maxAmount = _categoryTotals.Max(c => c.Amount);
             var pct = maxAmount > 0 ? (double)(item.Amount / maxAmount) * 100 : 0;
             <div style="margin-bottom: 10px;">
-                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
                     <span>@item.Name</span>
                     <span style="color: var(--color-text-secondary);">@item.Amount.ToString("N0")원</span>
                 </div>

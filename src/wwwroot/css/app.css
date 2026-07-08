@@ -82,6 +82,8 @@ select:focus-visible {
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
   background: var(--color-bg);
   color: var(--color-text);
   -webkit-tap-highlight-color: transparent;
@@ -118,13 +120,13 @@ body {
 }
 
 .summary-label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-muted);
   margin-bottom: 2px;
 }
 
 .summary-value {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
 }
 
@@ -135,7 +137,7 @@ body {
 /* 카드 공통 */
 .card {
   background: var(--color-surface);
-  border: 0.5px solid var(--color-border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   padding: 14px 16px;
   margin-bottom: 10px;
@@ -171,7 +173,7 @@ body {
 
 .calendar-weekdays span {
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-muted);
 }
 
@@ -192,11 +194,11 @@ body {
 
 .calendar-cell.selected {
   background: var(--color-accent-bg);
-  border: 0.5px solid var(--color-accent);
+  border: 1px solid var(--color-accent);
 }
 
 .calendar-cell .day-number {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text);
 }
 
@@ -206,7 +208,7 @@ body {
 }
 
 .calendar-cell .day-amount {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
 }
 
@@ -236,11 +238,11 @@ body {
 }
 
 .transaction-title {
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .transaction-sub {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-muted);
 }
 
@@ -316,10 +318,10 @@ input[type="range"]::-moz-range-thumb {
 /* 버튼 */
 .btn {
   border-radius: var(--radius-control);
-  border: 0.5px solid var(--color-border);
+  border: 1px solid var(--color-border);
   background: var(--color-surface);
-  padding: 10px 14px;
-  font-size: 13px;
+  padding: 11px 14px;
+  font-size: 14px;
   color: var(--color-text);
   cursor: pointer;
 }
@@ -371,7 +373,7 @@ input[type="range"]::-moz-range-thumb {
 
 .form-label {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-secondary);
   margin-bottom: 4px;
 }
@@ -379,11 +381,11 @@ input[type="range"]::-moz-range-thumb {
 .form-input,
 .form-select {
   width: 100%;
-  padding: 10px 12px;
+  padding: 11px 12px;
   border-radius: var(--radius-control);
-  border: 0.5px solid var(--color-border);
+  border: 1px solid var(--color-border);
   background: var(--color-surface);
-  font-size: 14px;
+  font-size: 15px;
   color: var(--color-text);
 }
 
@@ -402,11 +404,11 @@ button {
 
 .toggle-group button {
   flex: 1;
-  padding: 8px;
+  padding: 9px;
   border-radius: var(--radius-control);
-  border: 0.5px solid var(--color-border);
+  border: 1px solid var(--color-border);
   background: var(--color-surface);
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-text-secondary);
   cursor: pointer;
 }
@@ -450,7 +452,7 @@ a {
   bottom: 0;
   display: flex;
   background: var(--color-surface);
-  border-top: 0.5px solid var(--color-border);
+  border-top: 1px solid var(--color-border);
   padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
 }
 
@@ -460,7 +462,7 @@ a {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--color-text-muted);
   text-decoration: none;
 }
@@ -494,7 +496,7 @@ a {
   text-align: center;
   padding: 40px 16px;
   color: var(--color-text-muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 #blazor-error-ui {
