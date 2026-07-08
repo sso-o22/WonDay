@@ -1,0 +1,61 @@
+@page "/settings"
+@inject ThemeService ThemeSvc
+@inject SupabaseService Supabase
+@inject NavigationManager Nav
+
+<h1 style="font-size: 18px; margin: 0 0 16px;">설정</h1>
+
+<h2 style="font-size: 14px; margin: 0 0 10px;">테마 색상</h2>
+
+<div class="card">
+    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;">
+        @foreach (var theme in ThemeService.Themes)
+        {
+            <button style="display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; padding: 4px;"
+                    @onclick="() => SelectTheme(theme.Id)">
+                <div style="width: 36px; height: 36px; border-radius: 50%; background: @SwatchColor(theme.Id); border: 2px solid @(ThemeSvc.CurrentTheme == theme.Id ? "var(--color-text)" : "transparent");"></div>
+                <span style="font-size: 11px; color: var(--color-text-secondary);">@theme.Label</span>
+            </button>
+        }
+    </div>
+</div>
+
+<h2 style="font-size: 14px; margin: 20px 0 10px;">화면 모드</h2>
+
+<div class="card">
+    <div class="toggle-group">
+        <button class="@(ThemeSvc.CurrentMode == "light" ? "active" : "")" @onclick='() => SelectMode("light")'>
+            <i class="ti ti-sun" aria-hidden="true"></i> 라이트
+        </button>
+        <button class="@(ThemeSvc.CurrentMode == "dark" ? "active" : "")" @onclick='() => SelectMode("dark")'>
+            <i class="ti ti-moon" aria-hidden="true"></i> 다크
+        </button>
+    </div>
+</div>
+
+<h2 style="font-size: 14px; margin: 20px 0 10px;">계정</h2>
+
+<div class="card">
+    <button class="btn btn-full" @onclick="SignOut">로그아웃</button>
+</div>
+
+@code {
+    void SelectTheme(string theme) => ThemeSvc.SetTheme(theme);
+    void SelectMode(string mode) => ThemeSvc.SetMode(mode);
+
+    static string SwatchColor(string themeId) => themeId switch
+    {
+        "purple" => "#b3a4d9",
+        "green" => "#a8c2a0",
+        "yellow" => "#d9c17a",
+        "pink" => "#d9a8bb",
+        "sky" => "#a3c4d9",
+        _ => "#b3a4d9"
+    };
+
+    async Task SignOut()
+    {
+        await Supabase.SignOutAsync();
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+}

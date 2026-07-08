@@ -1,4 +1,5 @@
 using Supabase;
+using Microsoft.JSInterop;
 
 namespace WonDay.Services;
 
@@ -10,7 +11,7 @@ public class SupabaseService
 {
     public Client Client { get; }
 
-    public SupabaseService(string url, string anonKey)
+    public SupabaseService(string url, string anonKey, IJSInProcessRuntime jsRuntime)
     {
         var options = new SupabaseOptions
         {
@@ -18,10 +19,15 @@ public class SupabaseService
         };
 
         Client = new Client(url, anonKey, options);
+
+        // 로그인 세션을 localStorage에 저장/복원하도록 연결 (새로고침해도 로그인 유지)
+        Client.Auth.SetPersistence(new BrowserSessionPersistence(jsRuntime));
     }
 
     public async Task InitializeAsync()
     {
+        // 저장돼 있던 세션이 있으면 먼저 불러오고,
+        Client.Auth.LoadSession();
         await Client.InitializeAsync();
     }
 
