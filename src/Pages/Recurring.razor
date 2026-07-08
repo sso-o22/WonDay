@@ -91,7 +91,8 @@ else
 
             <div class="form-group">
                 <label class="form-label">시작월</label>
-                <input class="form-input" type="month" @bind="_newStartMonth" />
+                <input class="form-input" type="month" value="@_newStartMonth"
+                       @onchange="e => _newStartMonth = e.Value?.ToString() ?? _newStartMonth" />
             </div>
 
             @if (_error is not null)

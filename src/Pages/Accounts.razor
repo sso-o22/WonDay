@@ -233,13 +233,14 @@ else
 
                 <div class="form-group">
                     <label class="form-label">첫 청구월 (그 달 1일에 첫 할부금이 기록돼요)</label>
-                    <input class="form-input" type="month" @bind="_newInstallmentStartMonth" />
+                    <input class="form-input" type="month" value="@_newInstallmentStartMonth"
+                           @onchange="e => _newInstallmentStartMonth = e.Value?.ToString() ?? _newInstallmentStartMonth" />
                 </div>
 
                 @if (_newInstallmentTotal > 0 && _newInstallmentMonths > 0)
                 {
                     <p style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 12px;">
-                        월 약 @((_newInstallmentTotal / _newInstallmentMonths).ToString("N0"))원씩 @_newInstallmentMonths개월
+                        월 약 @((_newInstallmentTotal / _newInstallmentMonths).ToString("N0"))원씩 @(_newInstallmentMonths)개월
                     </p>
                 }
             }
