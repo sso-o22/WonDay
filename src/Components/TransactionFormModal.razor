@@ -5,7 +5,7 @@
 
 <div class="modal-backdrop" @onclick="Cancel">
     <div class="modal-sheet" @onclick:stopPropagation="true">
-        <h2 style="font-size: 17px; margin: 0 0 16px;">내역 추가</h2>
+        <h2 style="font-size: 17px; margin: 0 0 16px;">@(EditingTransaction is null ? "내역 추가" : "내역 수정")</h2>
 
         <div class="toggle-group" style="margin-bottom: 16px;">
             <button class="@(_type == "expense" ? "active" : "")" @onclick='() => _type = "expense"'>지출</button>
@@ -68,6 +68,10 @@
         }
 
         <div style="display: flex; gap: 8px;">
+            @if (EditingTransaction is not null)
+            {
+                <button class="btn" style="flex: 1; color: var(--color-danger);" @onclick="Delete">삭제</button>
+            }
             <button class="btn" style="flex: 1;" @onclick="Cancel">취소</button>
             <button class="btn btn-primary" style="flex: 2;" @onclick="Save">저장</button>
         </div>
@@ -76,8 +80,11 @@
 
 @code {
     [Parameter] public DateTime InitialDate { get; set; } = DateTime.Today;
+    // null이면 새로 추가하는 모드, 값이 있으면 그 거래를 수정하는 모드입니다.
+    [Parameter] public Transaction? EditingTransaction { get; set; }
     [Parameter] public EventCallback OnSaved { get; set; }
     [Parameter] public EventCallback OnCancelled { get; set; }
+    [Parameter] public EventCallback OnDeleted { get; set; }
 
     List<Category> _categories = new();
     List<Account> _accounts = new();
@@ -94,10 +101,26 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _date = InitialDate;
         _categories = await CategoryRepo.GetAllAsync();
         _accounts = await AccountRepo.GetAllAsync();
         _cards = await CardRepo.GetAllAsync();
+
+        if (EditingTransaction is { } t)
+        {
+            _type = t.Type;
+            _amount = t.Amount;
+            _categoryId = t.CategoryId?.ToString() ?? "";
+            _paymentMethod = t.PaymentAccountId is not null
+                ? $"account:{t.PaymentAccountId}"
+                : t.PaymentCardId is not null ? $"card:{t.PaymentCardId}" : "";
+            _memo = t.Memo;
+            _date = t.Date;
+            _isShared = t.IsShared;
+        }
+        else
+        {
+            _date = InitialDate;
+        }
     }
 
     async Task Save()
@@ -114,14 +137,14 @@
             return;
         }
 
-        var transaction = new Transaction
-        {
-            Date = _date,
-            Amount = _amount,
-            Type = _type,
-            CategoryId = string.IsNullOrEmpty(_categoryId) ? null : Guid.Parse(_categoryId),
-            Memo = _memo
-        };
+        var transaction = EditingTransaction ?? new Transaction();
+        transaction.Date = _date;
+        transaction.Amount = _amount;
+        transaction.Type = _type;
+        transaction.CategoryId = string.IsNullOrEmpty(_categoryId) ? null : Guid.Parse(_categoryId);
+        transaction.Memo = _memo;
+        transaction.PaymentAccountId = null;
+        transaction.PaymentCardId = null;
 
         var parts = _paymentMethod.Split(':');
         if (parts[0] == "account")
@@ -131,12 +154,36 @@
 
         try
         {
-            await TransactionRepo.CreateAsync(transaction, _isShared);
+            if (EditingTransaction is null)
+            {
+                await TransactionRepo.CreateAsync(transaction, _isShared);
+            }
+            else
+            {
+                transaction.IsShared = _isShared;
+                await TransactionRepo.UpdateAsync(transaction);
+            }
             await OnSaved.InvokeAsync();
         }
         catch (Exception ex)
         {
             _error = "저장 중 문제가 발생했어요.";
+            Console.Error.WriteLine(ex);
+        }
+    }
+
+    async Task Delete()
+    {
+        if (EditingTransaction is null) return;
+
+        try
+        {
+            await TransactionRepo.DeleteAsync(EditingTransaction.Id);
+            await OnDeleted.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = "삭제 중 문제가 발생했어요.";
             Console.Error.WriteLine(ex);
         }
     }

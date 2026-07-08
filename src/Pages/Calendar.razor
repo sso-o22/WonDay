@@ -65,7 +65,7 @@
     {
         @foreach (var t in SelectedDateTransactions)
         {
-            <div class="transaction-row">
+            <div class="transaction-row" style="cursor: pointer;" @onclick="() => OpenEditForm(t)">
                 <div class="transaction-icon"><i class="ti ti-receipt" aria-hidden="true"></i></div>
                 <div class="transaction-info">
                     <div class="transaction-title">@(string.IsNullOrEmpty(t.Memo) ? "메모 없음" : t.Memo)</div>
@@ -85,7 +85,8 @@
 
 @if (_showForm)
 {
-    <TransactionFormModal InitialDate="_selectedDate" OnSaved="HandleSaved" OnCancelled="() => _showForm = false" />
+    <TransactionFormModal InitialDate="_selectedDate" EditingTransaction="_editingTransaction"
+                           OnSaved="HandleSaved" OnCancelled="CloseForm" OnDeleted="HandleDeleted" />
 }
 
 @code {
@@ -93,6 +94,7 @@
     DateTime _selectedDate = DateTime.Today;
     List<Transaction> _monthTransactions = new();
     bool _showForm;
+    Transaction? _editingTransaction;
 
     int LeadingBlanks => (int)_currentMonth.DayOfWeek;
 
@@ -134,11 +136,33 @@
         _selectedDate = new DateTime(_currentMonth.Year, _currentMonth.Month, day);
     }
 
-    void OpenForm() => _showForm = true;
+    void OpenForm()
+    {
+        _editingTransaction = null;
+        _showForm = true;
+    }
+
+    void OpenEditForm(Transaction t)
+    {
+        _editingTransaction = t;
+        _showForm = true;
+    }
+
+    void CloseForm()
+    {
+        _showForm = false;
+        _editingTransaction = null;
+    }
 
     async Task HandleSaved()
     {
-        _showForm = false;
+        CloseForm();
+        await LoadMonth();
+    }
+
+    async Task HandleDeleted()
+    {
+        CloseForm();
         await LoadMonth();
     }
 }
