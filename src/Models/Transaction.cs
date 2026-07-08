@@ -46,6 +46,10 @@ public class Transaction : BaseModel
     [Column("memo")]
     public string? Memo { get; set; }
 
+    // 할부에서 자동 생성된 거래면 원본 할부 계획을 가리켜요.
+    [Column("installment_plan_id")]
+    public Guid? InstallmentPlanId { get; set; }
+
     [Column("created_at")]
     public DateTime CreatedAt { get; set; }
 }

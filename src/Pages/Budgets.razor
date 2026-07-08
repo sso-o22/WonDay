@@ -1,0 +1,133 @@
+@page "/budgets"
+@inject CategoryRepository CategoryRepo
+@inject BudgetOverrideRepository OverrideRepo
+
+<h1 style="font-size: 19px; margin: 0 0 16px;">예산 설정</h1>
+
+<div class="card" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+    <button @onclick="() => ChangeMonth(-1)"><i class="ti ti-chevron-left" aria-hidden="true"></i></button>
+    <span style="font-size: 15px; font-weight: 600;">@_viewMonth.ToString("yyyy년 M월")</span>
+    <button @onclick="() => ChangeMonth(1)"><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
+</div>
+
+<p style="font-size: 12px; color: var(--color-text-muted); margin: 0 0 16px;">
+    이 달 값을 따로 입력하면 그 달만 다르게 적용돼요. 비워두면 기본 예산(하루/주/월 반복)이 그대로 쓰여요.
+</p>
+
+@if (_categories.Count == 0)
+{
+    <div class="empty-state">지출 카테고리가 없어요. 먼저 카테고리를 추가해주세요.</div>
+}
+else
+{
+    @foreach (var c in _categories)
+    {
+        var hasOverride = _overrideAmounts.TryGetValue(c.Id, out var overrideVal);
+        <div class="card">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                <div style="width: 28px; height: 28px; border-radius: 50%; background: @(c.Color ?? "#b3a4d9")33; display: flex; align-items: center; justify-content: center;">
+                    <i class="ti @(c.Icon ?? "ti-tag")" style="font-size: 15px; color: @(c.Color ?? "#b3a4d9");" aria-hidden="true"></i>
+                </div>
+                <span style="font-size: 14px; font-weight: 600;">@c.Name</span>
+            </div>
+
+            <div style="margin-bottom: 8px;">
+                <label class="form-label">기본 예산 (계속 반복)</label>
+                <div style="display: flex; gap: 8px;">
+                    <input class="form-input" type="number" value="@c.BudgetAmount" style="flex: 1;"
+                           @onchange="e => UpdateDefaultAmount(c, e.Value)" placeholder="0" />
+                    <select class="form-select" style="width: 90px;" @onchange="e => UpdateDefaultPeriod(c, e.Value)">
+                        <option value="daily" selected="@(c.BudgetPeriod == "daily")">하루</option>
+                        <option value="weekly" selected="@(c.BudgetPeriod == "weekly")">주</option>
+                        <option value="monthly" selected="@(c.BudgetPeriod == "monthly")">월</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="form-label">@_viewMonth.ToString("M월")만 다르게 (선택)</label>
+                <div style="display: flex; gap: 8px;">
+                    <input class="form-input" type="number" style="flex: 1;"
+                           value="@(hasOverride ? overrideVal.ToString() : "")"
+                           @onchange="e => UpdateOverride(c, e.Value)" placeholder="비워두면 기본값 사용" />
+                    @if (hasOverride)
+                    {
+                        <button class="btn" style="padding: 0 12px;" @onclick="() => ClearOverride(c)">지우기</button>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    List<Category> _categories = new();
+    Dictionary<Guid, decimal> _overrideAmounts = new();
+    Dictionary<Guid, Guid> _overrideIds = new();
+    DateTime _viewMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+    }
+
+    async Task Load()
+    {
+        var all = await CategoryRepo.GetAllAsync();
+        _categories = all.Where(c => c.Type == "expense").ToList();
+
+        var overrides = await OverrideRepo.GetForMonthAsync(_viewMonth.Year, _viewMonth.Month);
+        _overrideAmounts = overrides.ToDictionary(o => o.CategoryId, o => o.Amount);
+        _overrideIds = overrides.ToDictionary(o => o.CategoryId, o => o.Id);
+    }
+
+    async Task ChangeMonth(int delta)
+    {
+        _viewMonth = _viewMonth.AddMonths(delta);
+        await Load();
+    }
+
+    async Task UpdateDefaultAmount(Category c, object? value)
+    {
+        if (decimal.TryParse(value?.ToString(), out var amount))
+        {
+            c.BudgetAmount = amount > 0 ? amount : null;
+            await CategoryRepo.UpdateAsync(c);
+        }
+    }
+
+    async Task UpdateDefaultPeriod(Category c, object? value)
+    {
+        var period = value?.ToString();
+        if (!string.IsNullOrEmpty(period))
+        {
+            c.BudgetPeriod = period;
+            await CategoryRepo.UpdateAsync(c);
+        }
+    }
+
+    async Task UpdateOverride(Category c, object? value)
+    {
+        var text = value?.ToString();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            await ClearOverride(c);
+            return;
+        }
+
+        if (decimal.TryParse(text, out var amount) && amount > 0)
+        {
+            await OverrideRepo.SetAsync(c.Id, _viewMonth.Year, _viewMonth.Month, amount, isShared: c.IsShared);
+            await Load();
+        }
+    }
+
+    async Task ClearOverride(Category c)
+    {
+        if (_overrideIds.TryGetValue(c.Id, out var id))
+        {
+            await OverrideRepo.DeleteAsync(id);
+            await Load();
+        }
+    }
+}
