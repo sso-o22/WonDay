@@ -1,0 +1,6 @@
+name = "wonday"
+compatibility_date = "2026-07-08"
+
+[assets]
+directory = "./output/wwwroot"
+not_found_handling = "single-page-application"
