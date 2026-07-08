@@ -37,18 +37,21 @@ else
                     }
                 </div>
             </div>
-            <button class="btn" style="padding: 6px 10px; font-size: 13px;" @onclick="() => DeleteCategory(c.Id)">삭제</button>
+            <div style="display: flex; gap: 6px;">
+                <button class="btn" style="padding: 6px 10px; font-size: 13px;" @onclick="() => OpenEditForm(c)">수정</button>
+                <button class="btn" style="padding: 6px 10px; font-size: 13px;" @onclick="() => DeleteCategory(c.Id)">삭제</button>
+            </div>
         </div>
     }
 }
 
-<button class="btn btn-primary btn-full" style="margin-top: 16px;" @onclick="() => _showAddForm = true">+ 카테고리 추가</button>
+<button class="btn btn-primary btn-full" style="margin-top: 16px;" @onclick="OpenAddForm">+ 카테고리 추가</button>
 
 @if (_showAddForm)
 {
-    <div class="modal-backdrop" @onclick="() => _showAddForm = false">
+    <div class="modal-backdrop" @onclick="CloseForm">
         <div class="modal-sheet" @onclick:stopPropagation="true">
-            <h2 style="font-size: 17px; margin: 0 0 16px;">새 카테고리</h2>
+            <h2 style="font-size: 17px; margin: 0 0 16px;">@(_editingCategory is null ? "새 카테고리" : "카테고리 수정")</h2>
 
             <div class="toggle-group" style="margin-bottom: 16px;">
                 <button class="@(_newType == "expense" ? "active" : "")" @onclick='() => _newType = "expense"'>지출</button>
@@ -67,6 +70,19 @@ else
                     {
                         <button style="width: 32px; height: 32px; border-radius: 50%; background: @color; border: 2px solid @(_newColor == color ? "var(--color-text)" : "transparent"); cursor: pointer;"
                                 @onclick="() => _newColor = color"></button>
+                    }
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">아이콘</label>
+                <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px;">
+                    @foreach (var icon in PresetIcons)
+                    {
+                        <button style="aspect-ratio: 1; border-radius: 10px; background: @(_newIcon == icon ? _newColor + "33" : "var(--color-surface-alt)"); border: 2px solid @(_newIcon == icon ? _newColor : "transparent"); display: flex; align-items: center; justify-content: center; cursor: pointer;"
+                                @onclick="() => _newIcon = icon">
+                            <i class="ti @icon" style="font-size: 18px; color: @(_newIcon == icon ? _newColor : "var(--color-text-secondary)");" aria-hidden="true"></i>
+                        </button>
                     }
                 </div>
             </div>
@@ -90,8 +106,8 @@ else
             }
 
             <div style="display: flex; gap: 8px;">
-                <button class="btn" style="flex: 1;" @onclick="() => _showAddForm = false">취소</button>
-                <button class="btn btn-primary" style="flex: 2;" @onclick="AddCategory">추가</button>
+                <button class="btn" style="flex: 1;" @onclick="CloseForm">취소</button>
+                <button class="btn btn-primary" style="flex: 2;" @onclick="SaveCategory">@(_editingCategory is null ? "추가" : "저장")</button>
             </div>
         </div>
     </div>
@@ -102,14 +118,45 @@ else
     string _filterType = "expense";
 
     bool _showAddForm;
+    Category? _editingCategory;
     string _newType = "expense";
     string _newName = "";
     string _newColor = PresetColors[0];
+    string _newIcon = PresetIcons[0];
     decimal? _newBudgetAmount;
     string _newBudgetPeriod = "monthly";
     string? _error;
 
     static readonly string[] PresetColors = { "#8fb0d9", "#8fcdb6", "#e8c37a", "#b3a4d9", "#e2a3bc", "#c9a67c" };
+
+    // 가계부 카테고리에 자주 쓰이는 아이콘들 (tabler.io/icons)
+    static readonly string[] PresetIcons =
+    {
+        "ti-tools-kitchen-2",   // 식비
+        "ti-coffee",            // 카페
+        "ti-bus",                // 교통(대중교통)
+        "ti-car",                // 교통(자차/주유)
+        "ti-shopping-cart",     // 장보기/생필품
+        "ti-shopping-bag",      // 쇼핑
+        "ti-home",                // 주거/월세
+        "ti-bolt",                // 공과금(전기 등)
+        "ti-wifi",                // 통신비
+        "ti-movie",              // 문화/영화
+        "ti-ticket",              // 공연/티켓
+        "ti-plane",              // 여행
+        "ti-heartbeat",         // 의료/건강
+        "ti-pill",                // 약/병원
+        "ti-dumbbell",           // 운동/헬스
+        "ti-school",             // 교육
+        "ti-paw",                 // 반려동물
+        "ti-gift",                // 경조사/선물
+        "ti-device-mobile",     // 구독/앱
+        "ti-briefcase",          // 급여(수입)
+        "ti-cash",                // 용돈/현금(수입)
+        "ti-piggy-bank",         // 저축
+        "ti-shield",              // 보험
+        "ti-tag",                  // 기타
+    };
 
     List<Category> FilteredCategories => _categories.Where(c => c.Type == _filterType).ToList();
 
@@ -137,7 +184,40 @@ else
         _ => "월간"
     };
 
-    async Task AddCategory()
+    void OpenAddForm()
+    {
+        _editingCategory = null;
+        _newType = "expense";
+        _newName = "";
+        _newColor = PresetColors[0];
+        _newIcon = PresetIcons[0];
+        _newBudgetAmount = null;
+        _newBudgetPeriod = "monthly";
+        _error = null;
+        _showAddForm = true;
+    }
+
+    void OpenEditForm(Category category)
+    {
+        _editingCategory = category;
+        _newType = category.Type;
+        _newName = category.Name;
+        _newColor = category.Color ?? PresetColors[0];
+        _newIcon = category.Icon ?? PresetIcons[0];
+        _newBudgetAmount = category.BudgetAmount;
+        _newBudgetPeriod = category.BudgetPeriod;
+        _error = null;
+        _showAddForm = true;
+    }
+
+    void CloseForm()
+    {
+        _showAddForm = false;
+        _editingCategory = null;
+        _error = null;
+    }
+
+    async Task SaveCategory()
     {
         if (string.IsNullOrWhiteSpace(_newName))
         {
@@ -145,19 +225,33 @@ else
             return;
         }
 
-        var category = new Category
-            {
-                Name = _newName,
-                Type = _newType,
-                Color = _newColor,
-                Icon = "ti-tag",
-                BudgetAmount = _newType == "expense" && _newBudgetAmount > 0 ? _newBudgetAmount : null,
-                BudgetPeriod = _newBudgetPeriod
-            };
-
         try
         {
-            await CategoryRepo.CreateAsync(category);
+            if (_editingCategory is null)
+            {
+                var category = new Category
+                    {
+                        Name = _newName,
+                        Type = _newType,
+                        Color = _newColor,
+                        Icon = _newIcon,
+                        BudgetAmount = _newType == "expense" && _newBudgetAmount > 0 ? _newBudgetAmount : null,
+                        BudgetPeriod = _newBudgetPeriod
+                    };
+                await CategoryRepo.CreateAsync(category);
+            }
+            else
+            {
+                // 기존 객체를 그대로 수정해서 보내야 household_id, owner_user_id 같은
+                // 다른 필드들이 실수로 비워지지 않아요.
+                _editingCategory.Name = _newName;
+                _editingCategory.Type = _newType;
+                _editingCategory.Color = _newColor;
+                _editingCategory.Icon = _newIcon;
+                _editingCategory.BudgetAmount = _newType == "expense" && _newBudgetAmount > 0 ? _newBudgetAmount : null;
+                _editingCategory.BudgetPeriod = _newBudgetPeriod;
+                await CategoryRepo.UpdateAsync(_editingCategory);
+            }
         }
         catch (Exception ex)
         {
@@ -166,11 +260,7 @@ else
             return;
         }
 
-        _newName = "";
-        _newBudgetAmount = null;
-        _showAddForm = false;
-        _error = null;
-
+        CloseForm();
         await Load();
     }
 

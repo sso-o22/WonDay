@@ -5,7 +5,7 @@
 
 <div class="modal-backdrop" @onclick="Cancel">
     <div class="modal-sheet" @onclick:stopPropagation="true">
-        <h2 style="font-size: 16px; margin: 0 0 16px;">내역 추가</h2>
+        <h2 style="font-size: 17px; margin: 0 0 16px;">내역 추가</h2>
 
         <div class="toggle-group" style="margin-bottom: 16px;">
             <button class="@(_type == "expense" ? "active" : "")" @onclick='() => _type = "expense"'>지출</button>
@@ -31,6 +31,7 @@
         <div class="form-group">
             <label class="form-label">결제 수단</label>
             <select class="form-select" @bind="_paymentMethod">
+                <option value="">선택</option>
                 <optgroup label="계좌/현금">
                     @foreach (var a in _accounts)
                     {
@@ -63,7 +64,7 @@
 
         @if (_error is not null)
         {
-            <p class="text-danger" style="font-size: 12px; margin-bottom: 12px;">@_error</p>
+            <p class="text-danger" style="font-size: 13px; margin-bottom: 12px;">@_error</p>
         }
 
         <div style="display: flex; gap: 8px;">
@@ -114,13 +115,13 @@
         }
 
         var transaction = new Transaction
-        {
-            Date = _date,
-            Amount = _amount,
-            Type = _type,
-            CategoryId = string.IsNullOrEmpty(_categoryId) ? null : Guid.Parse(_categoryId),
-            Memo = _memo
-        };
+            {
+                Date = _date,
+                Amount = _amount,
+                Type = _type,
+                CategoryId = string.IsNullOrEmpty(_categoryId) ? null : Guid.Parse(_categoryId),
+                Memo = _memo
+            };
 
         var parts = _paymentMethod.Split(':');
         if (parts[0] == "account")
