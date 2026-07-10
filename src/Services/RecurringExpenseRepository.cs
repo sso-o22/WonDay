@@ -52,6 +52,8 @@ public class RecurringExpenseRepository
 
     public async Task DeleteAsync(Guid id)
     {
+        // 정기결제도 마찬가지로, 지울 때 그동안 생성된 거래를 같이 지워야 고아 거래가 안 남아요.
+        await _supabase.Client.From<Transaction>().Where(t => t.RecurringExpenseId == id).Delete();
         await _supabase.Client.From<RecurringExpense>().Where(r => r.Id == id).Delete();
     }
 

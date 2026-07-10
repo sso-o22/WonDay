@@ -54,6 +54,9 @@ public class InstallmentPlanRepository
 
     public async Task DeleteAsync(Guid id)
     {
+        // 계획만 지우면 이미 생성해둔 거래가 고아로 남아서 카드 대금에 계속 섞여요.
+        // 계획을 지울 때 그 계획으로 생성된 거래도 같이 지웁니다.
+        await _supabase.Client.From<Transaction>().Where(t => t.InstallmentPlanId == id).Delete();
         await _supabase.Client.From<InstallmentPlan>().Where(p => p.Id == id).Delete();
     }
 
