@@ -21,6 +21,31 @@
     </div>
 </div>
 
+<h2 style="font-size: 15px; margin: 20px 0 10px;">이번 주 지출</h2>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <span style="font-size: 13px; color: var(--color-text-muted);">@_weekStart.ToString("M월 d일")~@_weekEnd.ToString("M월 d일")</span>
+        <span style="font-size: 15px; font-weight: 600;">@_weekTotal.ToString("N0")원</span>
+    </div>
+    <div style="display: flex; align-items: flex-end; gap: 8px; height: 100px;">
+        @{ var maxWeekly = _weeklyStats.Count > 0 ? _weeklyStats.Max(w => w.Expense) : 0; }
+        @foreach (var w in _weeklyStats)
+        {
+            var pct = maxWeekly > 0 ? (double)(w.Expense / maxWeekly) * 100 : 0;
+            var isToday = w.Date.Date == DateTime.Today.Date;
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%;">
+                @if (w.Expense > 0)
+                {
+                    <span style="font-size: 8px; color: var(--color-text-muted); margin-bottom: 2px; white-space: nowrap;">@w.Expense.ToString("N0")</span>
+                }
+                <div style="width: 100%; min-height: 2px; height: @(w.Expense > 0 ? Math.Max(pct, 4) : 0)%; background: @(isToday ? "var(--color-accent)" : "var(--color-accent-bg)"); border-radius: 4px 4px 0 0;"></div>
+                <span style="font-size: 11px; margin-top: 4px; color: @(isToday ? "var(--color-accent)" : "var(--color-text-muted)"); font-weight: @(isToday ? "600" : "400");">@WeekdayLabel(w.Date)</span>
+            </div>
+        }
+    </div>
+</div>
+
 <h2 style="font-size: 15px; margin: 20px 0 10px;">오늘 쓸 수 있는 만큼만</h2>
 
 @if (_budgetStatuses.Count == 0)
@@ -69,6 +94,10 @@ else
 @code {
     List<CategoryBudgetStatus> _budgetStatuses = new();
     List<CategoryTotal> _categoryTotals = new();
+    List<DailyStat> _weeklyStats = new();
+    DateTime _weekStart;
+    DateTime _weekEnd;
+    decimal _weekTotal;
     decimal _monthExpense;
     decimal _dailyAverage;
     int _transactionCount;
@@ -84,10 +113,10 @@ else
         var cards = await CardRepo.GetAllAsync();
         var cardsById = cards.ToDictionary(c => c.Id, c => c);
 
-        // 카드 지출은 다음달 결제일 기준으로 잡히므로, 저번 달 거래까지 같이 불러와서
+        // 카드 지출은 결제일 기준으로 잡히므로(최대 2달 뒤), 넉넉히 두 달 전 거래까지 같이 불러와서
         // 표시 기준 날짜(DisplayDate)가 이번 달인 것만 걸러냅니다.
         var monthStart = new DateTime(today.Year, today.Month, 1);
-        var rangeStart = monthStart.AddMonths(-1);
+        var rangeStart = monthStart.AddMonths(-2);
         var rangeEnd = monthStart.AddMonths(1).AddDays(-1);
         var candidates = await TransactionRepo.GetByDateRangeAsync(rangeStart, rangeEnd);
 
@@ -124,7 +153,40 @@ else
             })
             .OrderByDescending(c => c.Amount)
             .ToList();
+
+        // 이번 주(일~토) 지출 — 카드 지출은 결제일 기준으로 잡히니까, 월별 계산과 같은 방식으로
+        // 두 달 전 거래까지 넉넉히 불러온 뒤 걸러냅니다.
+        _weekStart = today.AddDays(-(int)today.DayOfWeek);
+        _weekEnd = _weekStart.AddDays(6);
+        var weekRangeStart = _weekStart.AddMonths(-2);
+        var weekCandidates = await TransactionRepo.GetByDateRangeAsync(weekRangeStart, _weekEnd);
+
+        _weeklyStats = Enumerable.Range(0, 7).Select(i =>
+        {
+            var d = _weekStart.AddDays(i);
+            var cash = weekCandidates
+                .Where(t => t.PaymentCardId is null && t.Type == "expense" && t.Date.Date == d.Date)
+                .Sum(t => t.Amount);
+            var cardBill = weekCandidates
+                .Where(t => t.PaymentCardId is not null && t.Type == "expense")
+                .Where(t => CardRepo.GetDisplayDate(t, cardsById).Date == d.Date)
+                .Sum(t => t.Amount);
+            return new DailyStat { Date = d, Expense = cash + cardBill };
+        }).ToList();
+
+        _weekTotal = _weeklyStats.Sum(w => w.Expense);
     }
+
+    static string WeekdayLabel(DateTime d) => d.DayOfWeek switch
+    {
+        DayOfWeek.Sunday => "일",
+        DayOfWeek.Monday => "월",
+        DayOfWeek.Tuesday => "화",
+        DayOfWeek.Wednesday => "수",
+        DayOfWeek.Thursday => "목",
+        DayOfWeek.Friday => "금",
+        _ => "토"
+    };
 
     class CategoryTotal
     {
@@ -132,5 +194,11 @@ else
         public decimal Amount { get; set; }
         public string Color { get; set; } = "";
         public string Icon { get; set; } = "";
+    }
+
+    class DailyStat
+    {
+        public DateTime Date { get; set; }
+        public decimal Expense { get; set; }
     }
 }

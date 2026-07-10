@@ -39,12 +39,19 @@
         {
             var d = day;
             var total = DayTotal(d);
+            var cardSpent = CardPurchaseTotal(d);
             <button class="calendar-cell @(IsSelected(d) ? "selected" : "")" @onclick="() => SelectDate(d)">
                 <span class="day-number">@d</span>
                 @if (total != 0)
                 {
                     <span class="day-amount @(total > 0 ? "text-income" : "text-expense")">
                         @(total > 0 ? "+" : "-")@(Math.Abs(total).ToString("N0"))
+                    </span>
+                }
+                @if (cardSpent != 0)
+                {
+                    <span class="day-amount day-amount-card" title="카드로 쓴 금액 (결제일에 지출로 잡혀요)">
+                        @(Math.Abs(cardSpent).ToString("N0"))
                     </span>
                 }
             </button>
@@ -55,7 +62,14 @@
 <div class="card">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
         <span style="font-size: 14px; font-weight: 600;">@_selectedDate.ToString("M월 d일")</span>
-        <span style="font-size: 13px; color: var(--color-text-muted);">@DayTotal(_selectedDate.Day).ToString("N0")원</span>
+        <span style="font-size: 13px; color: var(--color-text-muted); text-align: right;">
+            @DayTotal(_selectedDate.Day).ToString("N0")원
+            @{ var cardSpentToday = CardPurchaseTotal(_selectedDate.Day); }
+            @if (cardSpentToday != 0)
+            {
+                <br /><span style="font-size: 11px;">카드 사용 @Math.Abs(cardSpentToday).ToString("N0")원 (결제일에 별도 반영)</span>
+            }
+        </span>
     </div>
 
     @if (CountedRowsForSelected.Count == 0 && CardPurchasesForSelected.Count == 0)
@@ -64,58 +78,54 @@
     }
     else
     {
-        @if (CountedRowsForSelected.Count == 0)
+        @foreach (var row in CountedRowsForSelected)
         {
-            <div class="empty-state">이 날 청구되는 내역이 없어요.</div>
-        }
-        else
-        {
-            @foreach (var row in CountedRowsForSelected)
+            @if (row.Bill is not null)
             {
-                @if (row.Bill is not null)
-                {
-                    var bill = row.Bill;
-                    <div class="transaction-row">
-                        <div class="transaction-icon"><i class="ti ti-credit-card" aria-hidden="true"></i></div>
-                        <div class="transaction-info">
-                            <div class="transaction-title">@(bill.CardName) 대금</div>
-                            <div class="transaction-sub">이 카드로 쓴 내역 합계</div>
-                        </div>
-                        <div class="text-expense" style="font-weight: 600; font-size: 14px;">
-                            -@bill.Amount.ToString("N0")원
-                        </div>
+                var bill = row.Bill;
+                <div class="transaction-row">
+                    <div class="transaction-icon"><i class="ti ti-credit-card" aria-hidden="true"></i></div>
+                    <div class="transaction-info">
+                        <div class="transaction-title">@(bill.CardName) 대금</div>
+                        <div class="transaction-sub">이 카드로 쓴 내역 합계</div>
                     </div>
-                }
-                else if (row.Transaction is not null)
-                {
-                    var t = row.Transaction;
-                    <div class="transaction-row" style="cursor: pointer;" @onclick="() => OpenEditForm(t)">
-                        <div class="transaction-icon"><i class="ti ti-receipt" aria-hidden="true"></i></div>
-                        <div class="transaction-info">
-                            <div class="transaction-title">@(string.IsNullOrEmpty(t.Memo) ? "메모 없음" : t.Memo)</div>
-                            <div class="transaction-sub">@(t.IsShared ? "같이 보기" : "나만 보기")</div>
-                        </div>
-                        <div class="@(t.Type == "income" ? "text-income" : "text-expense")" style="font-weight: 600; font-size: 14px;">
-                            @(t.Type == "income" ? "+" : "-")@t.Amount.ToString("N0")원
-                        </div>
+                    <div class="text-expense" style="font-weight: 600; font-size: 14px;">
+                        -@bill.Amount.ToString("N0")원
                     </div>
-                }
+                </div>
+            }
+            else if (row.Transaction is not null)
+            {
+                var t = row.Transaction;
+                <div class="transaction-row" style="cursor: pointer;" @onclick="() => OpenEditForm(t)">
+                    <div class="transaction-icon"><i class="ti ti-receipt" aria-hidden="true"></i></div>
+                    <div class="transaction-info">
+                        <div class="transaction-title">@(string.IsNullOrEmpty(t.Memo) ? "메모 없음" : t.Memo)</div>
+                        <div class="transaction-sub">@(t.IsShared ? "같이 보기" : "나만 보기")</div>
+                    </div>
+                    <div class="@(t.Type == "income" ? "text-income" : "text-expense")" style="font-weight: 600; font-size: 14px;">
+                        @(t.Type == "income" ? "+" : "-")@t.Amount.ToString("N0")원
+                    </div>
+                </div>
             }
         }
 
         @if (CardPurchasesForSelected.Count > 0)
         {
-            <div style="font-size: 12px; color: var(--color-text-muted); margin: 14px 0 6px;">카드 사용 내역 (청구 예정 · 오늘 총액에는 안 잡혀요)</div>
+            @if (CountedRowsForSelected.Count > 0)
+            {
+                <div style="font-size: 12px; color: var(--color-text-muted); margin: 14px 0 6px;">카드로 쓴 내역</div>
+            }
             @foreach (var t in CardPurchasesForSelected)
             {
-                <div class="transaction-row" style="cursor: pointer; opacity: 0.55;" @onclick="() => OpenEditForm(t)">
+                <div class="transaction-row" style="cursor: pointer;" @onclick="() => OpenEditForm(t)">
                     <div class="transaction-icon"><i class="ti ti-credit-card" aria-hidden="true"></i></div>
                     <div class="transaction-info">
                         <div class="transaction-title">@(string.IsNullOrEmpty(t.Memo) ? "메모 없음" : t.Memo)</div>
-                        <div class="transaction-sub">@DisplayDate(t).ToString("M월 d일")에 카드 대금으로 청구</div>
+                        <div class="transaction-sub">@DisplayDate(t).ToString("M월 d일")에 카드 대금으로 청구돼요</div>
                     </div>
-                    <div style="font-weight: 600; font-size: 14px;">
-                        @t.Amount.ToString("N0")원
+                    <div class="text-expense" style="font-weight: 600; font-size: 14px;">
+                        -@t.Amount.ToString("N0")원
                     </div>
                 </div>
             }
@@ -207,6 +217,15 @@
             .Sum(b => -b.Amount);
 
         return cashTotal + cardBillTotal;
+    }
+
+    // 그날 카드로 쓴 금액 (참고용 표시 전용 — 이 날의 "총액"에는 안 잡히고, 결제일에 카드대금으로 잡혀요)
+    decimal CardPurchaseTotal(int day)
+    {
+        var date = new DateTime(_currentMonth.Year, _currentMonth.Month, day);
+        return _monthTransactions
+            .Where(t => t.PaymentCardId is not null && t.Date.Date == date.Date && t.Type != "transfer")
+            .Sum(t => t.Type == "income" ? t.Amount : -t.Amount);
     }
 
     bool IsSelected(int day) =>

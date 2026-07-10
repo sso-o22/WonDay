@@ -216,6 +216,13 @@ body {
   text-overflow: ellipsis;
 }
 
+.calendar-cell .day-amount-card {
+  font-size: 8px;
+  font-weight: 500;
+  color: var(--color-accent);
+  opacity: 0.75;
+}
+
 /* 거래 리스트 */
 .transaction-row {
   display: flex;
