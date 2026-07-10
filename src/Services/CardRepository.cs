@@ -37,8 +37,9 @@ public class CardRepository
         await _supabase.Client.From<Card>().Where(c => c.Id == id).Delete();
     }
 
-    // 카드 거래는 실제 결제일(다음달 결제일)에 지출로 잡히도록 "표시용 날짜"를 계산합니다.
-    // 예: 7월에 카드로 결제 -> 카드의 결제일이 있는 다음달(8월)의 지출로 계산돼요.
+    // 카드 거래는 실제 결제일(청구 마감일 기준 다음 결제일)에 지출로 잡히도록 "표시용 날짜"를 계산합니다.
+    // 1) 구매일이 이번 달 마감일 이전이면 이번 달 마감 주기, 이후면 다음 달 마감 주기에 속해요.
+    // 2) 결제일이 마감일보다 늦은 날짜면 마감과 같은 달에 결제되고, 마감일보다 이른 날짜면 마감 다음 달에 결제돼요.
     public DateTime GetDisplayDate(Transaction t, Dictionary<Guid, Card> cardsById)
     {
         if (t.PaymentCardId is null || !cardsById.TryGetValue(t.PaymentCardId.Value, out var card))
@@ -46,9 +47,20 @@ public class CardRepository
             return t.Date;
         }
 
-        var target = t.Date.AddMonths(1);
-        var day = Math.Min(card.PaymentDay, DateTime.DaysInMonth(target.Year, target.Month));
-        return DateTime.SpecifyKind(new DateTime(target.Year, target.Month, day), DateTimeKind.Utc);
+        var purchaseDate = t.Date;
+        var thisMonthStatement = new DateTime(purchaseDate.Year, purchaseDate.Month,
+            Math.Min(card.StatementDay, DateTime.DaysInMonth(purchaseDate.Year, purchaseDate.Month)));
+
+        // 이 구매가 속한 청구주기가 마감되는 달
+        var closingMonthAnchor = purchaseDate <= thisMonthStatement ? purchaseDate : purchaseDate.AddMonths(1);
+
+        // 결제일이 마감일과 같거나 늦으면 마감과 같은 달에 결제, 이르면 다음 달에 결제
+        var paymentMonthAnchor = card.PaymentDay >= card.StatementDay
+            ? closingMonthAnchor
+            : closingMonthAnchor.AddMonths(1);
+
+        var day = Math.Min(card.PaymentDay, DateTime.DaysInMonth(paymentMonthAnchor.Year, paymentMonthAnchor.Month));
+        return DateTime.SpecifyKind(new DateTime(paymentMonthAnchor.Year, paymentMonthAnchor.Month, day), DateTimeKind.Utc);
     }
 
     // 이번 청구 기간(마감일 기준) 동안 이 카드로 쓴 금액 합계
