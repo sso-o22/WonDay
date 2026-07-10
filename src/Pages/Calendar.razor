@@ -83,16 +83,34 @@
             @if (row.Bill is not null)
             {
                 var bill = row.Bill;
-                <div class="transaction-row">
+                var isExpanded = _expandedBill is not null && _expandedBill.Value.CardId == bill.CardId && _expandedBill.Value.PaymentDate == bill.PaymentDate;
+                <div class="transaction-row" style="cursor: pointer;" @onclick="() => ToggleBillExpand(bill)">
                     <div class="transaction-icon"><i class="ti ti-credit-card" aria-hidden="true"></i></div>
                     <div class="transaction-info">
                         <div class="transaction-title">@(bill.CardName) 대금</div>
-                        <div class="transaction-sub">이 카드로 쓴 내역 합계</div>
+                        <div class="transaction-sub">이 카드로 쓴 내역 합계 · 눌러서 @(isExpanded ? "접기" : "내역 보기")</div>
                     </div>
                     <div class="text-expense" style="font-weight: 600; font-size: 14px;">
                         -@bill.Amount.ToString("N0")원
                     </div>
                 </div>
+                @if (isExpanded)
+                {
+                    <div style="margin: 0 0 8px 44px; padding-left: 10px; border-left: 2px solid var(--color-border);">
+                        @foreach (var it in BillItems(bill))
+                        {
+                            <div class="transaction-row" style="cursor: pointer; padding: 6px 0;" @onclick="() => OpenEditForm(it)">
+                                <div class="transaction-info">
+                                    <div class="transaction-title" style="font-size: 13px;">@(string.IsNullOrEmpty(it.Memo) ? "메모 없음" : it.Memo)</div>
+                                    <div class="transaction-sub">@it.Date.ToString("M월 d일")에 씀</div>
+                                </div>
+                                <div style="font-size: 13px; color: var(--color-text-secondary);">
+                                    @(it.Type == "income" ? "+" : "-")@it.Amount.ToString("N0")원
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
             }
             else if (row.Transaction is not null)
             {
@@ -150,6 +168,7 @@
     Dictionary<Guid, Card> _cardsById = new();
     bool _showForm;
     Transaction? _editingTransaction;
+    (Guid CardId, DateTime PaymentDate)? _expandedBill;
 
     // 월요일 시작 기준 빈 칸 개수 (월=0 ... 일=6)
     int LeadingBlanks => ((int)_currentMonth.DayOfWeek + 6) % 7;
@@ -243,6 +262,19 @@
     {
         _selectedDate = new DateTime(_currentMonth.Year, _currentMonth.Month, day);
     }
+
+    void ToggleBillExpand(CardBill bill)
+    {
+        var key = (bill.CardId, bill.PaymentDate);
+        _expandedBill = _expandedBill == key ? null : key;
+    }
+
+    // 이 카드 대금에 실제로 합쳐진 개별 거래들 (검증용 상세 내역)
+    List<Transaction> BillItems(CardBill bill) =>
+        _monthTransactions
+            .Where(t => t.PaymentCardId == bill.CardId && t.Type != "transfer" && DisplayDate(t).Date == bill.PaymentDate)
+            .OrderBy(t => t.Date)
+            .ToList();
 
     void OpenForm()
     {
