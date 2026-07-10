@@ -42,6 +42,16 @@ public class InstallmentPlanRepository
         return result.Models.First();
     }
 
+    /// <summary>
+    /// 할부 정보를 수정합니다. 총 금액/개월수가 바뀌면 월 납입금도 다시 계산돼요.
+    /// 이미 생성된 과거 거래 내역은 그대로 두고, 앞으로 생성될 회차부터 새 금액이 적용됩니다.
+    /// </summary>
+    public async Task UpdateAsync(InstallmentPlan plan)
+    {
+        plan.MonthlyAmount = Math.Round(plan.TotalAmount / plan.MonthsCount, 0, MidpointRounding.AwayFromZero);
+        await _supabase.Client.From<InstallmentPlan>().Update(plan);
+    }
+
     public async Task DeleteAsync(Guid id)
     {
         await _supabase.Client.From<InstallmentPlan>().Where(p => p.Id == id).Delete();

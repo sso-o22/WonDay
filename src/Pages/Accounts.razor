@@ -25,7 +25,13 @@ else
                     <div style="font-size: 14px; font-weight: 600;">@a.Name</div>
                     <div style="font-size: 12px; color: var(--color-text-muted);">@(a.IsShared ? "같이 보기" : "나만 보기") · @(a.Type == "cash" ? "현금" : "계좌")</div>
                 </div>
-                <div style="font-size: 15px; font-weight: 600;">@AccountRepo.CalculateBalance(a, _allTransactions).ToString("N0")원</div>
+                <div style="text-align: right;">
+                    <div style="font-size: 15px; font-weight: 600;">@AccountRepo.CalculateBalance(a, _allTransactions).ToString("N0")원</div>
+                    <div style="display: flex; gap: 6px; margin-top: 6px;">
+                        <button class="btn" style="padding: 4px 8px; font-size: 12px;" @onclick="() => OpenEditAccount(a)">수정</button>
+                        <button class="btn" style="padding: 4px 8px; font-size: 12px;" @onclick="() => DeleteAccount(a.Id)">삭제</button>
+                    </div>
+                </div>
             </div>
             @if (!string.IsNullOrEmpty(a.EncryptedNumber))
             {
@@ -56,7 +62,13 @@ else
                     <div style="font-size: 14px; font-weight: 600;">@c.Name</div>
                     <div style="font-size: 12px; color: var(--color-text-muted);">매월 @(c.StatementDay)일 마감 · @(c.PaymentDay)일 결제</div>
                 </div>
-                <div style="font-size: 15px; font-weight: 600;">@CardRepo.CalculateCurrentStatementAmount(c, _allTransactions, DateTime.Today).ToString("N0")원</div>
+                <div style="text-align: right;">
+                    <div style="font-size: 15px; font-weight: 600;">@CardRepo.CalculateCurrentStatementAmount(c, _allTransactions, DateTime.Today).ToString("N0")원</div>
+                    <div style="display: flex; gap: 6px; margin-top: 6px;">
+                        <button class="btn" style="padding: 4px 8px; font-size: 12px;" @onclick="() => OpenEditCard(c)">수정</button>
+                        <button class="btn" style="padding: 4px 8px; font-size: 12px;" @onclick="() => DeleteCard(c.Id)">삭제</button>
+                    </div>
+                </div>
             </div>
             @if (!string.IsNullOrEmpty(c.EncryptedNumber))
             {
@@ -89,7 +101,10 @@ else
                     <div style="font-size: 14px; font-weight: 600;">@p.Merchant</div>
                     <div style="font-size: 12px; color: var(--color-text-muted);">@cardName · 월 @p.MonthlyAmount.ToString("N0")원</div>
                 </div>
-                <button class="btn" style="padding: 5px 10px; font-size: 12px;" @onclick="() => DeleteInstallment(p.Id)">삭제</button>
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn" style="padding: 5px 10px; font-size: 12px;" @onclick="() => OpenEditInstallment(p)">수정</button>
+                    <button class="btn" style="padding: 5px 10px; font-size: 12px;" @onclick="() => DeleteInstallment(p.Id)">삭제</button>
+                </div>
             </div>
             <div class="progress-track">
                 <div class="progress-fill" style="width: @(progress.ToString("0"))%;"></div>
@@ -150,6 +165,64 @@ else
     </div>
 }
 
+@if (_showEditAccount && _editingAccount is not null)
+{
+    <div class="modal-backdrop" @onclick="CloseEditAccount">
+        <div class="modal-sheet" @onclick:stopPropagation="true">
+            <h2 style="font-size: 17px; margin: 0 0 16px;">계좌 수정</h2>
+            <div class="form-group">
+                <label class="form-label">이름</label>
+                <input class="form-input" @bind="_editAccountName" placeholder="예: 생활비 통장" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">시작 잔액</label>
+                <input class="form-input" type="number" @bind="_editAccountBalance" placeholder="0" />
+            </div>
+            <div class="toggle-group" style="margin-bottom: 16px;">
+                <button class="@(_editAccountShared ? "" : "active")" @onclick="() => _editAccountShared = false">나만 보기</button>
+                <button class="@(_editAccountShared ? "active" : "")" @onclick="() => _editAccountShared = true">같이 보기</button>
+            </div>
+            @if (_error is not null)
+            {
+                <p class="text-danger" style="font-size: 13px; margin-bottom: 12px;">@_error</p>
+            }
+            <div style="display: flex; gap: 8px;">
+                <button class="btn" style="flex: 1;" @onclick="CloseEditAccount">취소</button>
+                <button class="btn btn-primary" style="flex: 2;" disabled="@_isSaving" @onclick="SaveEditAccount">@(_isSaving ? "저장 중..." : "저장")</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showEditCard && _editingCard is not null)
+{
+    <div class="modal-backdrop" @onclick="CloseEditCard">
+        <div class="modal-sheet" @onclick:stopPropagation="true">
+            <h2 style="font-size: 17px; margin: 0 0 16px;">카드 수정</h2>
+            <div class="form-group">
+                <label class="form-label">이름</label>
+                <input class="form-input" @bind="_editCardName" placeholder="예: 신한카드" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">청구 마감일 (일)</label>
+                <input class="form-input" type="number" min="1" max="31" @bind="_editCardStatementDay" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">결제일 (일)</label>
+                <input class="form-input" type="number" min="1" max="31" @bind="_editCardPaymentDay" />
+            </div>
+            @if (_error is not null)
+            {
+                <p class="text-danger" style="font-size: 13px; margin-bottom: 12px;">@_error</p>
+            }
+            <div style="display: flex; gap: 8px;">
+                <button class="btn" style="flex: 1;" @onclick="CloseEditCard">취소</button>
+                <button class="btn btn-primary" style="flex: 2;" disabled="@_isSaving" @onclick="SaveEditCard">@(_isSaving ? "저장 중..." : "저장")</button>
+            </div>
+        </div>
+    </div>
+}
+
 @if (_showAddCard)
 {
     <div class="modal-backdrop" @onclick="CloseAddCard">
@@ -187,7 +260,7 @@ else
 {
     <div class="modal-backdrop" @onclick="CloseAddInstallment">
         <div class="modal-sheet" @onclick:stopPropagation="true">
-            <h2 style="font-size: 17px; margin: 0 0 16px;">할부 추가</h2>
+            <h2 style="font-size: 17px; margin: 0 0 16px;">@(_editingInstallment is null ? "할부 추가" : "할부 수정")</h2>
 
             @if (_cards.Count == 0)
             {
@@ -231,11 +304,20 @@ else
                     <input class="form-input" type="number" min="1" max="60" @bind="_newInstallmentMonths" />
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">첫 청구월 (그 달 1일에 첫 할부금이 기록돼요)</label>
-                    <input class="form-input" type="month" value="@_newInstallmentStartMonth"
-                           @onchange="e => _newInstallmentStartMonth = e.Value?.ToString() ?? _newInstallmentStartMonth" />
-                </div>
+                @if (_editingInstallment is null)
+                {
+                    <div class="form-group">
+                        <label class="form-label">첫 청구월 (그 달 1일에 첫 할부금이 기록돼요)</label>
+                        <input class="form-input" type="month" value="@_newInstallmentStartMonth"
+                               @onchange="e => _newInstallmentStartMonth = e.Value?.ToString() ?? _newInstallmentStartMonth" />
+                    </div>
+                }
+                else
+                {
+                    <p style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 12px;">
+                        이미 @(_editingInstallment.MonthsGenerated)개월치가 기록됐어요. 총 금액/개월수를 바꾸면 앞으로 남은 회차부터 새 금액이 적용돼요.
+                    </p>
+                }
 
                 @if (_newInstallmentTotal > 0 && _newInstallmentMonths > 0)
                 {
@@ -252,7 +334,7 @@ else
 
             <div style="display: flex; gap: 8px;">
                 <button class="btn" style="flex: 1;" @onclick="CloseAddInstallment">취소</button>
-                <button class="btn btn-primary" style="flex: 2;" disabled="@_isSaving" @onclick="AddInstallment">@(_isSaving ? "저장 중..." : "추가")</button>
+                <button class="btn btn-primary" style="flex: 2;" disabled="@_isSaving" @onclick="SaveInstallment">@(_isSaving ? "저장 중..." : (_editingInstallment is null ? "추가" : "저장"))</button>
             </div>
         </div>
     </div>
@@ -303,13 +385,26 @@ else
     string _newAccountNumber = "";
     bool _newAccountShared;
 
+    bool _showEditAccount;
+    Account? _editingAccount;
+    string _editAccountName = "";
+    decimal _editAccountBalance;
+    bool _editAccountShared;
+
     bool _showAddCard;
     string _newCardName = "";
     int _newCardStatementDay = 15;
     int _newCardPaymentDay = 25;
     string _newCardNumber = "";
 
+    bool _showEditCard;
+    Card? _editingCard;
+    string _editCardName = "";
+    int _editCardStatementDay = 15;
+    int _editCardPaymentDay = 25;
+
     bool _showAddInstallment;
+    InstallmentPlan? _editingInstallment;
     string _newInstallmentCardId = "";
     string _newInstallmentCategoryId = "";
     string _newInstallmentMerchant = "";
@@ -372,6 +467,104 @@ else
         _newCardName = "";
         _newCardNumber = "";
         _error = null;
+    }
+
+    void OpenEditAccount(Account a)
+    {
+        _editingAccount = a;
+        _editAccountName = a.Name;
+        _editAccountBalance = a.InitialBalance;
+        _editAccountShared = a.IsShared;
+        _error = null;
+        _showEditAccount = true;
+    }
+
+    void CloseEditAccount()
+    {
+        _showEditAccount = false;
+        _editingAccount = null;
+        _error = null;
+    }
+
+    async Task SaveEditAccount()
+    {
+        if (_editingAccount is null || string.IsNullOrWhiteSpace(_editAccountName) || _isSaving) return;
+
+        _isSaving = true;
+        try
+        {
+            _editingAccount.Name = _editAccountName;
+            _editingAccount.InitialBalance = _editAccountBalance;
+            _editingAccount.IsShared = _editAccountShared;
+            await AccountRepo.UpdateAsync(_editingAccount);
+        }
+        catch (Exception ex)
+        {
+            _error = $"저장 실패: {ex.Message}";
+            return;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+
+        CloseEditAccount();
+        await LoadAll();
+    }
+
+    async Task DeleteAccount(Guid id)
+    {
+        await AccountRepo.DeleteAsync(id);
+        await LoadAll();
+    }
+
+    void OpenEditCard(Card c)
+    {
+        _editingCard = c;
+        _editCardName = c.Name;
+        _editCardStatementDay = c.StatementDay;
+        _editCardPaymentDay = c.PaymentDay;
+        _error = null;
+        _showEditCard = true;
+    }
+
+    void CloseEditCard()
+    {
+        _showEditCard = false;
+        _editingCard = null;
+        _error = null;
+    }
+
+    async Task SaveEditCard()
+    {
+        if (_editingCard is null || string.IsNullOrWhiteSpace(_editCardName) || _isSaving) return;
+
+        _isSaving = true;
+        try
+        {
+            _editingCard.Name = _editCardName;
+            _editingCard.StatementDay = _editCardStatementDay;
+            _editingCard.PaymentDay = _editCardPaymentDay;
+            await CardRepo.UpdateAsync(_editingCard);
+        }
+        catch (Exception ex)
+        {
+            _error = $"저장 실패: {ex.Message}";
+            return;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+
+        CloseEditCard();
+        await LoadAll();
+    }
+
+    async Task DeleteCard(Guid id)
+    {
+        await CardRepo.DeleteAsync(id);
+        await LoadAll();
     }
 
     async Task AddAccount()
@@ -489,6 +682,7 @@ else
 
     void OpenAddInstallment()
     {
+        _editingInstallment = null;
         _newInstallmentCardId = _cards.FirstOrDefault()?.Id.ToString() ?? "";
         _newInstallmentCategoryId = "";
         _newInstallmentMerchant = "";
@@ -499,10 +693,62 @@ else
         _showAddInstallment = true;
     }
 
+    void OpenEditInstallment(InstallmentPlan p)
+    {
+        _editingInstallment = p;
+        _newInstallmentCardId = p.CardId.ToString();
+        _newInstallmentCategoryId = p.CategoryId?.ToString() ?? "";
+        _newInstallmentMerchant = p.Merchant;
+        _newInstallmentTotal = p.TotalAmount;
+        _newInstallmentMonths = p.MonthsCount;
+        _error = null;
+        _showAddInstallment = true;
+    }
+
     void CloseAddInstallment()
     {
         _showAddInstallment = false;
+        _editingInstallment = null;
         _error = null;
+    }
+
+    Task SaveInstallment() => _editingInstallment is null ? AddInstallment() : UpdateInstallment();
+
+    async Task UpdateInstallment()
+    {
+        if (_editingInstallment is null || _isSaving) return;
+
+        if (string.IsNullOrEmpty(_newInstallmentCardId) || string.IsNullOrWhiteSpace(_newInstallmentMerchant)
+            || _newInstallmentTotal <= 0 || _newInstallmentMonths <= 0 || _newInstallmentMonths < _editingInstallment.MonthsGenerated)
+        {
+            _error = _newInstallmentMonths < _editingInstallment.MonthsGenerated
+                ? "이미 기록된 회차보다 적은 개월수로는 바꿀 수 없어요."
+                : "필수 항목을 모두 입력해주세요.";
+            return;
+        }
+
+        _isSaving = true;
+        try
+        {
+            _editingInstallment.CardId = Guid.Parse(_newInstallmentCardId);
+            _editingInstallment.CategoryId = string.IsNullOrEmpty(_newInstallmentCategoryId) ? null : Guid.Parse(_newInstallmentCategoryId);
+            _editingInstallment.Merchant = _newInstallmentMerchant;
+            _editingInstallment.TotalAmount = _newInstallmentTotal;
+            _editingInstallment.MonthsCount = _newInstallmentMonths;
+            await InstallmentRepo.UpdateAsync(_editingInstallment);
+        }
+        catch (Exception ex)
+        {
+            _error = $"저장 실패: {ex.Message}";
+            return;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+
+        CloseAddInstallment();
+        await LoadAll();
     }
 
     async Task AddInstallment()

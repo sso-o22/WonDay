@@ -179,7 +179,7 @@ else
     void OpenAddForm()
     {
         _editingCategory = null;
-        _newType = "expense";
+        _newType = _filterType;
         _newName = "";
         _newColor = PresetColors[0];
         _newIcon = PresetIcons[0];
@@ -251,6 +251,9 @@ else
             _error = $"저장 실패: {ex.GetType().Name} - {ex.Message} (토큰 있음: {hasToken})";
             return;
         }
+
+        // 방금 추가/수정한 카테고리 종류로 탭을 맞춰줘서, 저장 직후 바로 목록에 보이게 합니다.
+        _filterType = _newType;
 
         CloseForm();
         await Load();

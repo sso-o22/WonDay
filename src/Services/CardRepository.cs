@@ -27,9 +27,28 @@ public class CardRepository
         return result.Models.First();
     }
 
+    public async Task UpdateAsync(Card card)
+    {
+        await _supabase.Client.From<Card>().Update(card);
+    }
+
     public async Task DeleteAsync(Guid id)
     {
         await _supabase.Client.From<Card>().Where(c => c.Id == id).Delete();
+    }
+
+    // 카드 거래는 실제 결제일(다음달 결제일)에 지출로 잡히도록 "표시용 날짜"를 계산합니다.
+    // 예: 7월에 카드로 결제 -> 카드의 결제일이 있는 다음달(8월)의 지출로 계산돼요.
+    public DateTime GetDisplayDate(Transaction t, Dictionary<Guid, Card> cardsById)
+    {
+        if (t.PaymentCardId is null || !cardsById.TryGetValue(t.PaymentCardId.Value, out var card))
+        {
+            return t.Date;
+        }
+
+        var target = t.Date.AddMonths(1);
+        var day = Math.Min(card.PaymentDay, DateTime.DaysInMonth(target.Year, target.Month));
+        return DateTime.SpecifyKind(new DateTime(target.Year, target.Month, day), DateTimeKind.Utc);
     }
 
     // 이번 청구 기간(마감일 기준) 동안 이 카드로 쓴 금액 합계

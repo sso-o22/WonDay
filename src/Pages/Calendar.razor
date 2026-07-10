@@ -1,5 +1,6 @@
 @page "/"
 @inject TransactionRepository TransactionRepo
+@inject CardRepository CardRepo
 
 <h1 style="font-size: 19px; margin: 0 0 16px;">원데이</h1>
 
@@ -43,7 +44,7 @@
                 @if (total != 0)
                 {
                     <span class="day-amount @(total > 0 ? "text-income" : "text-expense")">
-                        @(total > 0 ? "+" : "")@((total / 1000m).ToString("0"))k
+                        @(total > 0 ? "+" : "-")@(Math.Abs(total).ToString("N0"))
                     </span>
                 }
             </button>
@@ -69,7 +70,13 @@
                 <div class="transaction-icon"><i class="ti ti-receipt" aria-hidden="true"></i></div>
                 <div class="transaction-info">
                     <div class="transaction-title">@(string.IsNullOrEmpty(t.Memo) ? "메모 없음" : t.Memo)</div>
-                    <div class="transaction-sub">@(t.IsShared ? "같이 보기" : "나만 보기")</div>
+                    <div class="transaction-sub">
+                        @(t.IsShared ? "같이 보기" : "나만 보기")
+                        @if (t.PaymentCardId is not null)
+                        {
+                            <text> · @t.Date.ToString("M월 d일")에 결제</text>
+                        }
+                    </div>
                 </div>
                 <div class="@(t.Type == "income" ? "text-income" : "text-expense")" style="font-weight: 600; font-size: 14px;">
                     @(t.Type == "income" ? "+" : "-")@t.Amount.ToString("N0")원
@@ -93,6 +100,7 @@
     DateTime _currentMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
     DateTime _selectedDate = DateTime.Today;
     List<Transaction> _monthTransactions = new();
+    Dictionary<Guid, Card> _cardsById = new();
     bool _showForm;
     Transaction? _editingTransaction;
 
@@ -101,23 +109,36 @@
     decimal MonthIncome => _monthTransactions.Where(t => t.Type == "income").Sum(t => t.Amount);
     decimal MonthExpense => _monthTransactions.Where(t => t.Type == "expense").Sum(t => t.Amount);
 
+    // 카드 결제는 실제 구매일이 아니라 카드의 결제일(다음달)을 기준으로 이 화면에 표시돼요.
+    DateTime DisplayDate(Transaction t) => CardRepo.GetDisplayDate(t, _cardsById);
+
     List<Transaction> SelectedDateTransactions =>
-        _monthTransactions.Where(t => t.Date.Date == _selectedDate.Date).ToList();
+        _monthTransactions.Where(t => DisplayDate(t).Date == _selectedDate.Date).ToList();
 
     protected override async Task OnInitializedAsync()
     {
+        var cards = await CardRepo.GetAllAsync();
+        _cardsById = cards.ToDictionary(c => c.Id, c => c);
         await LoadMonth();
     }
 
     async Task LoadMonth()
     {
-        _monthTransactions = await TransactionRepo.GetByMonthAsync(_currentMonth.Year, _currentMonth.Month);
+        // 카드 거래가 다음달로 표시될 수 있으므로, 저번 달 거래까지 넉넉히 불러온 뒤
+        // 표시 기준 날짜(DisplayDate)가 이번 달에 해당하는 것만 걸러냅니다.
+        var rangeStart = _currentMonth.AddMonths(-1);
+        var rangeEnd = _currentMonth.AddMonths(1).AddDays(-1);
+        var candidates = await TransactionRepo.GetByDateRangeAsync(rangeStart, rangeEnd);
+
+        _monthTransactions = candidates
+            .Where(t => DisplayDate(t).Year == _currentMonth.Year && DisplayDate(t).Month == _currentMonth.Month)
+            .ToList();
     }
 
     decimal DayTotal(int day)
     {
         return _monthTransactions
-            .Where(t => t.Date.Day == day && t.Date.Month == _currentMonth.Month && t.Type != "transfer")
+            .Where(t => DisplayDate(t).Day == day && DisplayDate(t).Month == _currentMonth.Month && t.Type != "transfer")
             .Sum(t => t.Type == "income" ? t.Amount : -t.Amount);
     }
 

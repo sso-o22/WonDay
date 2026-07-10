@@ -45,6 +45,11 @@ public class RecurringExpenseRepository
         await _supabase.Client.From<RecurringExpense>().Update(item);
     }
 
+    public async Task UpdateAsync(RecurringExpense item)
+    {
+        await _supabase.Client.From<RecurringExpense>().Update(item);
+    }
+
     public async Task DeleteAsync(Guid id)
     {
         await _supabase.Client.From<RecurringExpense>().Where(r => r.Id == id).Delete();
