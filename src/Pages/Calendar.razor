@@ -58,30 +58,67 @@
         <span style="font-size: 13px; color: var(--color-text-muted);">@DayTotal(_selectedDate.Day).ToString("N0")원</span>
     </div>
 
-    @if (SelectedDateTransactions.Count == 0)
+    @if (CountedRowsForSelected.Count == 0 && CardPurchasesForSelected.Count == 0)
     {
         <div class="empty-state">이 날은 기록된 내역이 없어요.</div>
     }
     else
     {
-        @foreach (var t in SelectedDateTransactions)
+        @if (CountedRowsForSelected.Count == 0)
         {
-            <div class="transaction-row" style="cursor: pointer;" @onclick="() => OpenEditForm(t)">
-                <div class="transaction-icon"><i class="ti ti-receipt" aria-hidden="true"></i></div>
-                <div class="transaction-info">
-                    <div class="transaction-title">@(string.IsNullOrEmpty(t.Memo) ? "메모 없음" : t.Memo)</div>
-                    <div class="transaction-sub">
-                        @(t.IsShared ? "같이 보기" : "나만 보기")
-                        @if (t.PaymentCardId is not null)
-                        {
-                            <text> · @t.Date.ToString("M월 d일")에 결제</text>
-                        }
+            <div class="empty-state">이 날 청구되는 내역이 없어요.</div>
+        }
+        else
+        {
+            @foreach (var row in CountedRowsForSelected)
+            {
+                @if (row.Bill is not null)
+                {
+                    var bill = row.Bill;
+                    <div class="transaction-row">
+                        <div class="transaction-icon"><i class="ti ti-credit-card" aria-hidden="true"></i></div>
+                        <div class="transaction-info">
+                            <div class="transaction-title">@(bill.CardName) 대금</div>
+                            <div class="transaction-sub">이 카드로 쓴 내역 합계</div>
+                        </div>
+                        <div class="text-expense" style="font-weight: 600; font-size: 14px;">
+                            -@bill.Amount.ToString("N0")원
+                        </div>
+                    </div>
+                }
+                else if (row.Transaction is not null)
+                {
+                    var t = row.Transaction;
+                    <div class="transaction-row" style="cursor: pointer;" @onclick="() => OpenEditForm(t)">
+                        <div class="transaction-icon"><i class="ti ti-receipt" aria-hidden="true"></i></div>
+                        <div class="transaction-info">
+                            <div class="transaction-title">@(string.IsNullOrEmpty(t.Memo) ? "메모 없음" : t.Memo)</div>
+                            <div class="transaction-sub">@(t.IsShared ? "같이 보기" : "나만 보기")</div>
+                        </div>
+                        <div class="@(t.Type == "income" ? "text-income" : "text-expense")" style="font-weight: 600; font-size: 14px;">
+                            @(t.Type == "income" ? "+" : "-")@t.Amount.ToString("N0")원
+                        </div>
+                    </div>
+                }
+            }
+        }
+
+        @if (CardPurchasesForSelected.Count > 0)
+        {
+            <div style="font-size: 12px; color: var(--color-text-muted); margin: 14px 0 6px;">카드 사용 내역 (청구 예정 · 오늘 총액에는 안 잡혀요)</div>
+            @foreach (var t in CardPurchasesForSelected)
+            {
+                <div class="transaction-row" style="cursor: pointer; opacity: 0.55;" @onclick="() => OpenEditForm(t)">
+                    <div class="transaction-icon"><i class="ti ti-credit-card" aria-hidden="true"></i></div>
+                    <div class="transaction-info">
+                        <div class="transaction-title">@(string.IsNullOrEmpty(t.Memo) ? "메모 없음" : t.Memo)</div>
+                        <div class="transaction-sub">@DisplayDate(t).ToString("M월 d일")에 카드 대금으로 청구</div>
+                    </div>
+                    <div style="font-weight: 600; font-size: 14px;">
+                        @t.Amount.ToString("N0")원
                     </div>
                 </div>
-                <div class="@(t.Type == "income" ? "text-income" : "text-expense")" style="font-weight: 600; font-size: 14px;">
-                    @(t.Type == "income" ? "+" : "-")@t.Amount.ToString("N0")원
-                </div>
-            </div>
+            }
         }
     }
 </div>
@@ -106,14 +143,40 @@
 
     int LeadingBlanks => (int)_currentMonth.DayOfWeek;
 
-    decimal MonthIncome => _monthTransactions.Where(t => t.Type == "income").Sum(t => t.Amount);
-    decimal MonthExpense => _monthTransactions.Where(t => t.Type == "expense").Sum(t => t.Amount);
-
-    // 카드 결제는 실제 구매일이 아니라 카드의 결제일(다음달)을 기준으로 이 화면에 표시돼요.
+    // 카드 결제는 실제 구매일이 아니라 카드의 청구주기에 따른 결제일을 기준으로 계산돼요.
     DateTime DisplayDate(Transaction t) => CardRepo.GetDisplayDate(t, _cardsById);
 
-    List<Transaction> SelectedDateTransactions =>
-        _monthTransactions.Where(t => DisplayDate(t).Date == _selectedDate.Date).ToList();
+    // 카드가 아닌 거래(현금/계좌)
+    IEnumerable<Transaction> NonCardTransactions => _monthTransactions.Where(t => t.PaymentCardId is null);
+
+    // 카드 거래는 낱개로 집계하지 않고, 카드별·결제일별로 묶어서 "OO카드 대금" 한 줄로 집계해요.
+    record CardBill(Guid CardId, string CardName, DateTime PaymentDate, decimal Amount);
+
+    List<CardBill> CardBills => _monthTransactions
+        .Where(t => t.PaymentCardId is not null && t.Type != "transfer")
+        .GroupBy(t => (CardId: t.PaymentCardId!.Value, PaymentDate: DisplayDate(t).Date))
+        .Select(g => new CardBill(
+            g.Key.CardId,
+            _cardsById.TryGetValue(g.Key.CardId, out var c) ? c.Name : "카드",
+            g.Key.PaymentDate,
+            g.Sum(t => t.Type == "income" ? -t.Amount : t.Amount))) // 카드대금은 지출(+)이 기본, income이면 그만큼 상쇄
+        .ToList();
+
+    decimal MonthIncome => NonCardTransactions.Where(t => t.Type == "income" && t.Date.Month == _currentMonth.Month && t.Date.Year == _currentMonth.Year).Sum(t => t.Amount);
+    decimal MonthExpense => NonCardTransactions.Where(t => t.Type == "expense" && t.Date.Month == _currentMonth.Month && t.Date.Year == _currentMonth.Year).Sum(t => t.Amount)
+        + CardBills.Where(b => b.PaymentDate.Month == _currentMonth.Month && b.PaymentDate.Year == _currentMonth.Year).Sum(b => b.Amount);
+
+    // "오늘 총액"에 실제로 잡히는 항목들: 카드 아닌 거래(실제 날짜 기준) + 카드 대금 합계(결제일 기준)
+    record CountedRow(Transaction? Transaction, CardBill? Bill);
+
+    List<CountedRow> CountedRowsForSelected =>
+        NonCardTransactions.Where(t => t.Date.Date == _selectedDate.Date).Select(t => new CountedRow(t, null))
+        .Concat(CardBills.Where(b => b.PaymentDate == _selectedDate.Date).Select(b => new CountedRow(null, b)))
+        .ToList();
+
+    // 카드로 산 내역은 산 날짜에 참고용으로만 보여주고, 총액에는 안 잡혀요 (결제일에 합산돼서 잡혀요).
+    List<Transaction> CardPurchasesForSelected =>
+        _monthTransactions.Where(t => t.PaymentCardId is not null && t.Date.Date == _selectedDate.Date).ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -124,22 +187,26 @@
 
     async Task LoadMonth()
     {
-        // 카드 거래가 다음달로 표시될 수 있으므로, 저번 달 거래까지 넉넉히 불러온 뒤
-        // 표시 기준 날짜(DisplayDate)가 이번 달에 해당하는 것만 걸러냅니다.
-        var rangeStart = _currentMonth.AddMonths(-1);
+        // 카드 거래는 청구주기에 따라 최대 2달 뒤 결제일에 잡힐 수 있어서, 넉넉히 두 달 전부터 불러온 뒤
+        // 화면에 필요한 것만(실제 날짜가 이번 달이거나, 결제일이 이번 달인 것) 걸러서 씁니다.
+        var rangeStart = _currentMonth.AddMonths(-2);
         var rangeEnd = _currentMonth.AddMonths(1).AddDays(-1);
-        var candidates = await TransactionRepo.GetByDateRangeAsync(rangeStart, rangeEnd);
-
-        _monthTransactions = candidates
-            .Where(t => DisplayDate(t).Year == _currentMonth.Year && DisplayDate(t).Month == _currentMonth.Month)
-            .ToList();
+        _monthTransactions = await TransactionRepo.GetByDateRangeAsync(rangeStart, rangeEnd);
     }
 
     decimal DayTotal(int day)
     {
-        return _monthTransactions
-            .Where(t => DisplayDate(t).Day == day && DisplayDate(t).Month == _currentMonth.Month && t.Type != "transfer")
+        var date = new DateTime(_currentMonth.Year, _currentMonth.Month, day);
+
+        var cashTotal = NonCardTransactions
+            .Where(t => t.Date.Date == date.Date && t.Type != "transfer")
             .Sum(t => t.Type == "income" ? t.Amount : -t.Amount);
+
+        var cardBillTotal = CardBills
+            .Where(b => b.PaymentDate == date.Date)
+            .Sum(b => -b.Amount);
+
+        return cashTotal + cardBillTotal;
     }
 
     bool IsSelected(int day) =>

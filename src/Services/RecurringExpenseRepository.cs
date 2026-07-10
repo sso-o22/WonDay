@@ -66,6 +66,29 @@ public class RecurringExpenseRepository
 
         foreach (var item in items.Where(i => i.IsActive))
         {
+            // 방어 로직: "여기까지 만들었다"는 기록이 서버에 저장이 안 됐을 수도 있으니,
+            // 이 항목으로 실제 생성된 거래 중 가장 최근 날짜를 다시 찾아서 기록이 뒤처져 있으면 바로잡습니다.
+            var existingResult = await _supabase.Client
+                .From<Transaction>()
+                .Where(t => t.RecurringExpenseId == item.Id)
+                .Get();
+            var lastActual = existingResult.Models
+                .OrderByDescending(t => t.Date)
+                .FirstOrDefault();
+
+            if (lastActual is not null)
+            {
+                var actualYear = lastActual.Date.Year;
+                var actualMonth = lastActual.Date.Month;
+                var recordedYear = item.LastGeneratedYear ?? 0;
+                var recordedMonth = item.LastGeneratedMonth ?? 0;
+                if (actualYear > recordedYear || (actualYear == recordedYear && actualMonth > recordedMonth))
+                {
+                    item.LastGeneratedYear = actualYear;
+                    item.LastGeneratedMonth = actualMonth;
+                }
+            }
+
             // 아직 한 번도 생성 안 했으면 시작월부터, 아니면 마지막 생성월 다음 달부터 시작
             var (year, month) = item.LastGeneratedYear is not null && item.LastGeneratedMonth is not null
                 ? AddMonth(item.LastGeneratedYear.Value, item.LastGeneratedMonth.Value)

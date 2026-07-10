@@ -68,6 +68,19 @@ public class InstallmentPlanRepository
 
         foreach (var plan in plans.Where(p => p.MonthsGenerated < p.MonthsCount))
         {
+            // 방어 로직: "여기까지 만들었다"는 기록(months_generated)이 서버에 저장이 안 됐을 수도 있으니,
+            // 이 계획으로 실제 생성된 거래 개수를 다시 세어서 기록이 뒤처져 있으면 바로잡습니다.
+            // (예: RLS 설정 문제로 이전 업데이트가 조용히 실패했던 경우에도 중복 생성을 막아줘요.)
+            var existingResult = await _supabase.Client
+                .From<Transaction>()
+                .Where(t => t.InstallmentPlanId == plan.Id)
+                .Get();
+            var existingCount = existingResult.Models.Count;
+            if (existingCount > plan.MonthsGenerated)
+            {
+                plan.MonthsGenerated = existingCount;
+            }
+
             while (plan.MonthsGenerated < plan.MonthsCount)
             {
                 var targetMonth = plan.StartDate.AddMonths(plan.MonthsGenerated);
