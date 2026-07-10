@@ -154,9 +154,10 @@ else
             .OrderByDescending(c => c.Amount)
             .ToList();
 
-        // 이번 주(일~토) 지출 — 카드 지출은 결제일 기준으로 잡히니까, 월별 계산과 같은 방식으로
+        // 이번 주(월~일) 지출 — 카드 지출은 결제일 기준으로 잡히니까, 월별 계산과 같은 방식으로
         // 두 달 전 거래까지 넉넉히 불러온 뒤 걸러냅니다.
-        _weekStart = today.AddDays(-(int)today.DayOfWeek);
+        var isoDayOfWeek = ((int)today.DayOfWeek + 6) % 7; // 월요일=0 ... 일요일=6
+        _weekStart = today.AddDays(-isoDayOfWeek);
         _weekEnd = _weekStart.AddDays(6);
         var weekRangeStart = _weekStart.AddMonths(-2);
         var weekCandidates = await TransactionRepo.GetByDateRangeAsync(weekRangeStart, _weekEnd);

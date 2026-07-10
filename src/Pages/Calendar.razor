@@ -27,7 +27,7 @@
     </div>
 
     <div class="calendar-weekdays">
-        <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+        <span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span>
     </div>
 
     <div class="calendar-grid">
@@ -151,7 +151,8 @@
     bool _showForm;
     Transaction? _editingTransaction;
 
-    int LeadingBlanks => (int)_currentMonth.DayOfWeek;
+    // 월요일 시작 기준 빈 칸 개수 (월=0 ... 일=6)
+    int LeadingBlanks => ((int)_currentMonth.DayOfWeek + 6) % 7;
 
     // 카드 결제는 실제 구매일이 아니라 카드의 청구주기에 따른 결제일을 기준으로 계산돼요.
     DateTime DisplayDate(Transaction t) => CardRepo.GetDisplayDate(t, _cardsById);
