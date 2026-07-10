@@ -18,7 +18,9 @@ public class InstallmentPlanRepository
     }
 
     /// <summary>
-    /// 새 할부를 등록합니다. startDate는 첫 할부금이 청구되는 달의 1일로 맞춰서 넘겨주세요.
+    /// 새 할부를 등록합니다. startDate는 실제로 카드를 긁은(할부를 시작한) 정확한 날짜를 넘겨주세요.
+    /// 1회차는 이 날짜를 그대로 써서 카드 마감일 기준 결제월을 정확히 계산하고,
+    /// 2회차부터는 항상 매달 1일로 고정해서 마감일이 며칠이든 안정적으로 한 달씩 순서대로 청구되게 합니다.
     /// 등록하는 즉시 전체 회차를 미리 다 만들어둡니다 (몇 달 앞 카드 대금까지 바로 반영돼요).
     /// </summary>
     public async Task<InstallmentPlan> CreateAsync(
@@ -32,7 +34,7 @@ public class InstallmentPlanRepository
             TotalAmount = totalAmount,
             MonthsCount = monthsCount,
             MonthlyAmount = Math.Round(totalAmount / monthsCount, 0, MidpointRounding.AwayFromZero),
-            StartDate = DateTime.SpecifyKind(new DateTime(startDate.Year, startDate.Month, 1), DateTimeKind.Utc),
+            StartDate = DateTime.SpecifyKind(startDate.Date, DateTimeKind.Utc),
             MonthsGenerated = 0,
             OwnerUserId = Guid.Parse(_supabase.CurrentUserId!),
             HouseholdId = await _supabase.GetOrCreateHouseholdIdAsync(),
@@ -116,6 +118,10 @@ public class InstallmentPlanRepository
             ? Math.Round(remainingAmount / remainingMonths, 0, MidpointRounding.AwayFromZero)
             : 0;
 
+        // 1회차는 실제 긁은 날짜 그대로, 2회차부터는 항상 1일로 고정합니다.
+        // (마감일이 며칠이든, 2회차 이후는 day=1이라 항상 안정적으로 한 달씩 청구주기가 넘어가요.)
+        var baseMonth = new DateTime(plan.StartDate.Year, plan.StartDate.Month, 1);
+
         for (var i = 0; i < remainingMonths; i++)
         {
             var idx = pastCount + i;
@@ -123,7 +129,9 @@ public class InstallmentPlanRepository
             var amount = isLastOfPlan
                 ? remainingAmount - perMonth * (remainingMonths - 1) // 마지막 회차는 반올림 오차 보정
                 : perMonth;
-            var targetMonth = plan.StartDate.AddMonths(idx);
+            var targetMonth = idx == 0
+                ? plan.StartDate
+                : DateTime.SpecifyKind(baseMonth.AddMonths(idx), DateTimeKind.Utc);
 
             var transaction = new Transaction
             {

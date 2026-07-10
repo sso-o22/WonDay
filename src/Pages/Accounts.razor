@@ -308,9 +308,9 @@ else
                 @if (_editingInstallment is null)
                 {
                     <div class="form-group">
-                        <label class="form-label">첫 청구월 (그 달 1일에 첫 할부금이 기록돼요)</label>
-                        <input class="form-input" type="month" value="@_newInstallmentStartMonth"
-                               @onchange="e => _newInstallmentStartMonth = e.Value?.ToString() ?? _newInstallmentStartMonth" />
+                        <label class="form-label">할부 시작일 (실제로 카드를 긁은 날)</label>
+                        <input class="form-input" type="date" value="@_newInstallmentStartDate"
+                               @onchange="e => _newInstallmentStartDate = e.Value?.ToString() ?? _newInstallmentStartDate" />
                     </div>
                 }
                 else
@@ -411,7 +411,7 @@ else
     string _newInstallmentMerchant = "";
     decimal _newInstallmentTotal;
     int _newInstallmentMonths = 3;
-    string _newInstallmentStartMonth = DateTime.Today.AddMonths(1).ToString("yyyy-MM");
+    string _newInstallmentStartDate = DateTime.Today.ToString("yyyy-MM-dd");
 
     string _inviteEmail = "";
     string? _inviteMessage;
@@ -694,7 +694,7 @@ else
         _newInstallmentMerchant = "";
         _newInstallmentTotal = 0;
         _newInstallmentMonths = 3;
-        _newInstallmentStartMonth = DateTime.Today.AddMonths(1).ToString("yyyy-MM");
+        _newInstallmentStartDate = DateTime.Today.ToString("yyyy-MM-dd");
         _error = null;
         _showAddInstallment = true;
     }
@@ -773,15 +773,13 @@ else
         _isSaving = true;
         try
         {
-            var startDate = DateTime.ParseExact(_newInstallmentStartMonth + "-01", "yyyy-MM-dd", null);
+            var startDate = DateTime.ParseExact(_newInstallmentStartDate, "yyyy-MM-dd", null);
             Guid? categoryId = string.IsNullOrEmpty(_newInstallmentCategoryId) ? null : Guid.Parse(_newInstallmentCategoryId);
 
+            // CreateAsync 안에서 전체 회차를 바로 다 만들어줘요.
             await InstallmentRepo.CreateAsync(
                 Guid.Parse(_newInstallmentCardId), categoryId, _newInstallmentMerchant,
                 _newInstallmentTotal, _newInstallmentMonths, startDate, isShared: false);
-
-            // 첫 청구월이 이미 지났으면(예: 이번 달로 설정) 바로 거래로 반영합니다.
-            await InstallmentRepo.GenerateDueTransactionsAsync();
         }
         catch (Exception ex)
         {
