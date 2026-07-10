@@ -3,6 +3,7 @@
 @inject BudgetService BudgetSvc
 @inject CategoryRepository CategoryRepo
 @inject CardRepository CardRepo
+@inject AccountRepository AccountRepo
 
 <h1 style="font-size: 19px; margin: 0 0 16px;">통계</h1>
 
@@ -91,9 +92,42 @@ else
     }
 </div>
 
+<h2 style="font-size: 15px; margin: 20px 0 10px;">계좌/카드별 지출</h2>
+
+<div class="card">
+    @if (_paymentMethodTotals.Count == 0)
+    {
+        <div class="empty-state">이번 달 지출 내역이 없어요.</div>
+    }
+    else
+    {
+        @foreach (var item in _paymentMethodTotals)
+        {
+            var maxAmount = _paymentMethodTotals.Max(p => p.Amount);
+            var pct = maxAmount > 0 ? (double)(item.Amount / maxAmount) * 100 : 0;
+            var barColor = item.IsCard ? "var(--color-expense)" : "var(--color-accent)";
+            <div style="margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 4px;">
+                    <span style="display: flex; align-items: center; gap: 6px;">
+                        <span style="width: 22px; height: 22px; border-radius: 50%; background: @(barColor)33; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i class="ti @(item.IsCard ? "ti-credit-card" : "ti-building-bank")" style="font-size: 12px; color: @barColor;" aria-hidden="true"></i>
+                        </span>
+                        @item.Name
+                    </span>
+                    <span style="color: var(--color-text-secondary);">@item.Amount.ToString("N0")원</span>
+                </div>
+                <div class="budget-gauge-track">
+                    <div class="budget-gauge-fill" style="width: @(pct.ToString("0"))%; background: @barColor;"></div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
 @code {
     List<CategoryBudgetStatus> _budgetStatuses = new();
     List<CategoryTotal> _categoryTotals = new();
+    List<PaymentMethodTotal> _paymentMethodTotals = new();
     List<DailyStat> _weeklyStats = new();
     DateTime _weekStart;
     DateTime _weekEnd;
@@ -154,6 +188,29 @@ else
             .OrderByDescending(c => c.Amount)
             .ToList();
 
+        var accounts = await AccountRepo.GetAllAsync();
+        var accountLookup = accounts.ToDictionary(a => a.Id, a => a.Name);
+
+        _paymentMethodTotals = expenses
+            .Where(t => t.PaymentAccountId.HasValue || t.PaymentCardId.HasValue)
+            .GroupBy(t => t.PaymentAccountId.HasValue ? $"account:{t.PaymentAccountId}" : $"card:{t.PaymentCardId}")
+            .Select(g =>
+            {
+                var first = g.First();
+                var isCard = first.PaymentCardId.HasValue;
+                var name = isCard
+                    ? (cardsById.TryGetValue(first.PaymentCardId!.Value, out var c) ? c.Name : "카드")
+                    : accountLookup.GetValueOrDefault(first.PaymentAccountId!.Value, "계좌");
+                return new PaymentMethodTotal
+                {
+                    Name = name,
+                    Amount = g.Sum(t => t.Amount),
+                    IsCard = isCard
+                };
+            })
+            .OrderByDescending(p => p.Amount)
+            .ToList();
+
         // 이번 주(월~일) 지출 — 카드 지출은 결제일 기준으로 잡히니까, 월별 계산과 같은 방식으로
         // 두 달 전 거래까지 넉넉히 불러온 뒤 걸러냅니다.
         var isoDayOfWeek = ((int)today.DayOfWeek + 6) % 7; // 월요일=0 ... 일요일=6
@@ -195,6 +252,13 @@ else
         public decimal Amount { get; set; }
         public string Color { get; set; } = "";
         public string Icon { get; set; } = "";
+    }
+
+    class PaymentMethodTotal
+    {
+        public string Name { get; set; } = "";
+        public decimal Amount { get; set; }
+        public bool IsCard { get; set; }
     }
 
     class DailyStat
